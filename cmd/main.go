@@ -23,6 +23,10 @@ import (
 	"github.com/mrscorpio/uahelper/internal/tagdata"
 )
 
+const (
+	MdRd bool = false
+)
+
 var (
 	d      tagdata.AllTags
 	legSel map[string]bool
@@ -34,7 +38,7 @@ func main() {
 
 	cfg := configs.LoadConfig()
 
-	if cfg.WrMd {
+	if !MdRd {
 		fmt.Println("читаем сервачок", cfg.Endpoint)
 	}
 	fmt.Println("тренды пялить на localhost" + cfg.TrPort)
@@ -91,7 +95,7 @@ func main() {
 	}
 	tagfile.Close()
 
-	if cfg.WrMd {
+	if !MdRd {
 		filedata, err := os.ReadFile(arhDirName + time.Now().Format("20060102_15") + ".json")
 		if err == nil {
 			err := json.Unmarshal(filedata, &d)
@@ -182,7 +186,7 @@ func main() {
 	spin := false
 	var wg sync.WaitGroup
 
-	if cfg.WrMd {
+	if !MdRd {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -273,7 +277,7 @@ func main() {
 	}()
 
 	filename := ""
-	if cfg.RdMd {
+	if MdRd {
 		for {
 			fmt.Print("что именно пялим > ")
 			fmt.Scan(&filename)
