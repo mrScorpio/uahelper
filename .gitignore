@@ -1,0 +1,6 @@
+.env
+/arh
+*.exe
+*.bin
+*.7z
+*.zip
