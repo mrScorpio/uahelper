@@ -18,6 +18,7 @@ type AllTags struct {
 	Tag   []*TagData
 	Unit  map[string]*UnitData
 	Descr map[string]string
+	Tm    []string
 }
 
 type UnitData struct {
@@ -40,6 +41,7 @@ type TagData struct {
 func (at *AllTags) NewTag(name string, dscr string, cycle int) *TagData {
 	if at.Tag[0] == nil {
 		at.Descr = make(map[string]string)
+		at.Tm = make([]string, 0, 6666)
 	}
 	t := make([]string, 0, 6666)
 	y := make([]opts.LineData, 0, 6666)
@@ -86,7 +88,7 @@ func (cd *CycleData) AddTag(tagname string) error {
 
 func (at *AllTags) AddV(i int, v float32, t string) {
 	at.Tag[i].Y = append(at.Tag[i].Y, opts.LineData{Value: v})
-	at.Tag[i].T = append(at.Tag[i].T, t)
+	//	at.Tag[i].T = append(at.Tag[i].T, t)
 	unit := ""
 	if len(at.Tag[i].Y) == 1 {
 		at.Tag[i].Max = v
@@ -131,4 +133,5 @@ func (at *AllTags) Clean() {
 		at.Tag[i].T = make([]string, 0, 6666)
 		at.Tag[i].Y = make([]opts.LineData, 0, 6666)
 	}
+	at.Tm = make([]string, 0, 6666)
 }

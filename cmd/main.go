@@ -41,7 +41,7 @@ func main() {
 	if !MdRd {
 		fmt.Println("читаем сервачок", cfg.Endpoint)
 	}
-	fmt.Println("тренды пялить на localhost" + cfg.TrPort)
+	fmt.Println("тренды пялить на localhost" + cfg.TrPort + "/?tag1=leftaxis&tag2=rightaxis")
 
 	cl, err := opcua.NewClient(cfg.Endpoint, opcua.SecurityMode(ua.MessageSecurityModeNone))
 	if err != nil {
@@ -146,7 +146,7 @@ func main() {
 				d.Tag[i] = d.NewTag(v, descr.Text, cycle[i])
 			}
 		}
-		if d.Tag[i].Name == "ST50" {
+		if d.Tag[i].Name == "ST50_BZK" {
 			rpmInd = i
 		}
 
@@ -197,7 +197,7 @@ func main() {
 			for {
 				select {
 				case <-ctx.Done():
-					fmt.Println("bye")
+					log.Println("data server connection closed")
 					return
 				case <-chkSpin.C:
 					var curRpm float32
@@ -241,22 +241,32 @@ func main() {
 					}
 
 				default:
-
+					newTm := ""
+					crTm := ""
 					for key, item := range ccs {
 						if item.Cct >= key {
 
 							item.Resp, err = cl.Read(ctx, item.Req)
 							if err != nil {
-								log.Fatal(err)
+								log.Fatal("opcua request error: ", err)
 							}
 
 							item.Cct = 0
 						}
 
 						for i := range item.Resp.Results {
-							d.AddV(item.FirstPos+i, item.Resp.Results[i].Value.Value().(float32), item.Resp.Results[i].ServerTimestamp.Local().Format("15:04:05.000"))
+							crTm = item.Resp.Results[i].ServerTimestamp.Local().Format("15:04:05.000")
+							d.AddV(item.FirstPos+i, item.Resp.Results[i].Value.Value().(float32), crTm)
 						}
+
 						item.Cct += minCycle
+
+						if item.Cct <= minCycle {
+							newTm = crTm
+						}
+					}
+					if newTm != "" {
+						d.Tm = append(d.Tm, newTm)
 					}
 					time.Sleep(time.Duration(minCycle) * time.Millisecond)
 				}
@@ -264,12 +274,29 @@ func main() {
 		}()
 	}
 
+	mux := http.NewServeMux()
+	srv := http.Server{
+		Addr:    cfg.TrPort,
+		Handler: mux,
+	}
+	stopSrvSig := make(chan struct{})
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-stopSrvSig
+		err := srv.Shutdown(ctx)
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 
-		http.HandleFunc("/", httpserver)
-		err := http.ListenAndServe(cfg.TrPort, nil)
+		mux.HandleFunc("/", trendView)
+		err := srv.ListenAndServe()
 		if err != nil {
 			log.Println(err)
 		}
@@ -277,34 +304,34 @@ func main() {
 	}()
 
 	filename := ""
-	if MdRd {
-		for {
-			fmt.Print("что именно пялим > ")
-			fmt.Scan(&filename)
-			if strings.TrimSpace(filename) == "q" {
-				break
-			}
-			if filename == "1" {
-				prevH := time.Now().Add(-1 * time.Hour)
-				filename = prevH.Format("20060102_15") + ".json"
-			}
 
-			//filedata, err := os.ReadFile(filename + ".json")
-			err := repository.ReadStored(&d, filename)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-
-			fmt.Println("загружено, смотри в браузере")
+	for {
+		if MdRd {
+			fmt.Printf("для останова введи ку\nчто именно пялим > ")
+		} else {
+			fmt.Print("для останова введи ку > ")
 		}
-		cancel()
+		fmt.Scan(&filename)
+		if strings.TrimSpace(filename) == "q" {
+			break
+		}
+		err := repository.ReadStored(&d, filename)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		fmt.Println("загружено, смотри в браузере")
 	}
+
+	close(stopSrvSig)
+
+	cancel()
 
 	wg.Wait()
 }
 
-func httpserver(w http.ResponseWriter, req *http.Request) {
+func trendView(w http.ResponseWriter, req *http.Request) {
 
 	line := charts.NewLine()
 
@@ -312,8 +339,8 @@ func httpserver(w http.ResponseWriter, req *http.Request) {
 	tag2 := strings.Split(req.URL.Query().Get("tag2"), ",")
 
 	cnt := 1
-	lcnt := 1
-	axisW := 25
+	lcnt := 0
+	axisW := 66
 	zoomAxis := 1
 	cmpUnit := ""
 	var newAxis *opts.YAxis
@@ -325,7 +352,7 @@ func httpserver(w http.ResponseWriter, req *http.Request) {
 			//Min:      item.Min,
 			//Max:      item.Max,
 			Position:     "left",
-			NameGap:      lcnt * axisW,
+			NameGap:      -lcnt * axisW,
 			NameLocation: "middle",
 			Scale:        opts.Bool(true),
 			AlignTicks:   opts.Bool(true),
@@ -336,7 +363,7 @@ func httpserver(w http.ResponseWriter, req *http.Request) {
 				},
 			},
 			AxisLabel: &opts.AxisLabel{
-				Margin: float64(lcnt*axisW - 5),
+				Margin: -float64(lcnt * axisW),
 				Color:  opts.RGBColor(uint16(lcnt*10), uint16(lcnt*20), uint16(lcnt*5)),
 			},
 		}
@@ -357,15 +384,15 @@ func httpserver(w http.ResponseWriter, req *http.Request) {
 			zoomAxis = cnt
 			lcnt--
 			newAxis.Position = "right"
-			newAxis.NameGap = axisW
-			newAxis.AxisLabel = &opts.AxisLabel{Margin: float64(axisW)}
+			newAxis.NameGap = -33
+			newAxis.AxisLabel = &opts.AxisLabel{Margin: -33.3}
 		}
 
 		line.ExtendYAxis(*newAxis)
 
 		for _, v := range item.Pos {
 
-			line.SetXAxis(d.Tag[v].T)
+			line.SetXAxis(d.Tm)
 			seriesName := d.Tag[v].Name + "_" + d.Tag[v].Dscr
 			line.AddSeries(seriesName, d.Tag[v].Y,
 				charts.WithDatasetIndex(v),
@@ -374,7 +401,7 @@ func httpserver(w http.ResponseWriter, req *http.Request) {
 
 			legSel[seriesName] = false
 		}
-		cnt += 1
+		cnt++
 		lcnt++
 	}
 
@@ -390,7 +417,7 @@ func httpserver(w http.ResponseWriter, req *http.Request) {
 			Height:    "888px",
 			PageTitle: "чёткие трендики",
 		}),
-		charts.WithGridOpts(opts.Grid{Width: "999px", Left: fmt.Sprint(lcnt*axisW) + "px"}),
+		charts.WithGridOpts(opts.Grid{Width: "999px"}),
 		charts.WithLegendOpts(opts.Legend{Type: "scroll", Orient: "vertical", X: "right", Selected: legSel}),
 		charts.WithDataZoomOpts(
 			opts.DataZoom{Type: "slider", Orient: "horizontal"},

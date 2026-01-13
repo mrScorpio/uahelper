@@ -39,7 +39,7 @@ func StoreData(d *tagdata.AllTags, arhDirName string, periodic bool) error {
 	}
 	w.Close()
 
-	err = os.WriteFile(arhDirName+filename+".zip", buf.Bytes(), 0755)
+	err = os.WriteFile(arhDirName+filename, buf.Bytes(), 0755)
 
 	if err != nil {
 		return err
