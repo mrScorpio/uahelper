@@ -3,15 +3,19 @@ package repository
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"time"
 
+	"github.com/go-telegram/bot"
+	"github.com/go-telegram/bot/models"
+	"github.com/mrscorpio/uahelper/configs"
 	"github.com/mrscorpio/uahelper/internal/tagdata"
 )
 
-func StoreData(d *tagdata.AllTags, arhDirName string, periodic bool) error {
+func StoreData(d *tagdata.AllTags, arhDirName string, periodic bool, cfg *configs.Config, b *bot.Bot, ctx context.Context) error {
 	data, err := json.Marshal(*d)
 	if err != nil {
 		return err
@@ -48,6 +52,15 @@ func StoreData(d *tagdata.AllTags, arhDirName string, periodic bool) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	if cfg.Bot && !periodic {
+		prms := &bot.SendDocumentParams{
+			ChatID:   -1003556463783,
+			Document: &models.InputFileUpload{Filename: filename, Data: bytes.NewReader(buf.Bytes())},
+			Caption:  "прога для просмотра: ",
+		}
+		b.SendDocument(ctx, prms)
 	}
 
 	return nil

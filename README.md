@@ -5,6 +5,5 @@ List of tags located in file "tags".
 By default storage is the zipped files those created once an hour.
 
 TODO:
-- add telegram bot to send zipped files
 - add modbus connection
 - add subscribtion mode to opc ua

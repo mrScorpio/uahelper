@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -17,10 +15,13 @@ import (
 	"github.com/go-echarts/go-echarts/v2/opts"
 	"github.com/go-echarts/go-echarts/v2/types"
 	"github.com/gopcua/opcua"
-	"github.com/gopcua/opcua/ua"
 	"github.com/mrscorpio/uahelper/configs"
 	"github.com/mrscorpio/uahelper/internal/repository"
 	"github.com/mrscorpio/uahelper/internal/tagdata"
+	"github.com/mrscorpio/uahelper/pkg/opcuacl"
+	"github.com/mrscorpio/uahelper/pkg/tgbot"
+
+	"github.com/go-telegram/bot"
 )
 
 const (
@@ -37,65 +38,28 @@ func main() {
 	defer cancel()
 
 	cfg := configs.LoadConfig()
+	arhDirName := "arh/"
+
+	fmt.Println("тренды пялить на localhost" + cfg.TrPort + "/?zoom=tag_for_right_axis&show=tag1,tag2,...")
+
+	b, err := tgbot.NewBot(cfg.BotToken, MdRd || !cfg.Bot)
+	if err != nil {
+		log.Println(err)
+	}
+
+	cl, err := opcuacl.NewCl(ctx, cfg, MdRd)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	legSel = make(map[string]bool)
+
+	var wg sync.WaitGroup
 
 	if !MdRd {
 		fmt.Println("читаем сервачок", cfg.Endpoint)
-	}
-	fmt.Println("тренды пялить на localhost" + cfg.TrPort + "/?tag1=leftaxis&tag2=rightaxis")
+		os.Mkdir(strings.TrimSuffix(arhDirName, "/"), 0755)
 
-	cl, err := opcua.NewClient(cfg.Endpoint, opcua.SecurityMode(ua.MessageSecurityModeNone))
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := cl.Connect(ctx); err != nil {
-		log.Fatal(err)
-	}
-	defer cl.Close(ctx)
-
-	arhDirName := "arh/"
-	os.Mkdir(strings.TrimSuffix(arhDirName, "/"), 0755)
-
-	tagname := []string{}
-	cycle := []int{}
-
-	tagfile, err := os.Open("tags")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	scanner := bufio.NewScanner(tagfile)
-	ccs := make(map[int]*tagdata.CycleData)
-	nextCycle := 222
-	minCycle := 666
-	maxCycle := 6
-	i := 0
-	for scanner.Scan() {
-		c, err := strconv.Atoi(strings.TrimSuffix(scanner.Text(), ":"))
-		if err != nil {
-			nextTag := scanner.Text()
-			tagname = append(tagname, nextTag)
-			cycle = append(cycle, nextCycle)
-
-			err := ccs[nextCycle].AddTag(nextTag)
-			if err != nil {
-				log.Fatal(err)
-			}
-			i++
-		} else {
-			nextCycle = c
-			ccs[nextCycle] = tagdata.NewCycle()
-			ccs[nextCycle].FirstPos = i
-			if c < minCycle {
-				minCycle = c
-			}
-			if c > maxCycle {
-				maxCycle = c
-			}
-		}
-	}
-	tagfile.Close()
-
-	if !MdRd {
 		filedata, err := os.ReadFile(arhDirName + time.Now().Format("20060102_15") + ".json")
 		if err == nil {
 			err := json.Unmarshal(filedata, &d)
@@ -103,92 +67,28 @@ func main() {
 				log.Println(err)
 			}
 		}
-	}
 
-	id := make([]*ua.NodeID, len(tagname))
-	uid := make([]*ua.NodeID, len(tagname))
-	node := make([]*opcua.Node, len(tagname))
-
-	unitsToRead := make([]ua.ReadValueID, len(tagname))
-	unitsToReadp := make([]*ua.ReadValueID, len(tagname))
-
-	newTags := false
-	if len(d.Tag) != len(tagname) {
-		d.Tag = make([]*tagdata.TagData, len(tagname))
-		newTags = true
-	}
-	legSel = make(map[string]bool)
-
-	rpmInd := 0
-
-	for i, v := range tagname {
-
-		id[i], err = ua.ParseNodeID("ns=1;s=REGUL_R500." + v + ".VALUE")
+		err = d.ReadOpcTagList(ctx, cl)
 		if err != nil {
-			log.Fatalf("invalid node id: %v", err)
+			log.Println(err)
 		}
 
-		uid[i], err = ua.ParseNodeID("ns=1;s=REGUL_R500." + v + ".EU")
-		if err != nil {
-			log.Fatalf("invalid node id: %v", err)
-		}
-
-		node[i] = cl.Node(id[i])
-		descr, err := node[i].Description(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if newTags {
-			fullTag := strings.Split(v, ".")
-			if len(fullTag) > 1 {
-				d.Tag[i] = d.NewTag(fullTag[1], descr.Text, cycle[i])
-			} else {
-				d.Tag[i] = d.NewTag(v, descr.Text, cycle[i])
+		spin := false
+		rpmInd := 0
+		for i := range d.Tag {
+			if d.Tag[i].Name == "ST50_BZK" {
+				rpmInd = i
 			}
 		}
-		if d.Tag[i].Name == "ST50_BZK" {
-			rpmInd = i
+
+		if cfg.Bot {
+			go b.Start(ctx)
 		}
-
-		unitsToRead[i].NodeID = uid[i]
-		unitsToReadp[i] = &unitsToRead[i]
-
-	}
-
-	reqUnits := &ua.ReadRequest{
-		MaxAge:      2000,
-		NodesToRead: unitsToReadp,
-	}
-
-	var resp *ua.ReadResponse
-
-	if newTags {
-		resp, err = cl.Read(ctx, reqUnits)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		d.Unit = make(map[string]*tagdata.UnitData)
-
-		for i, v := range resp.Results {
-			key := v.Value.Value().(string)
-			if key == "°С" {
-				key = "°C"
-			}
-			_, ok := d.Unit[key]
-			if !ok {
-				d.Unit[key] = tagdata.NewUnit()
-			}
-			d.Unit[key].Pos = append(d.Unit[key].Pos, i)
-		}
-	}
-	//fmt.Println(d.Unit)
-	spin := false
-	var wg sync.WaitGroup
-
-	if !MdRd {
 		wg.Add(1)
 		go func() {
+			if b != nil {
+				b.SendMessage(ctx, &bot.SendMessageParams{ChatID: -1003556463783, Text: "логер запущен"})
+			}
 			defer wg.Done()
 			ticker := time.NewTicker(time.Duration(cfg.StoreCycle) * time.Second)
 			chkSpin := time.NewTicker(6 * time.Second)
@@ -197,7 +97,7 @@ func main() {
 			for {
 				select {
 				case <-ctx.Done():
-					log.Println("data server connection closed")
+					log.Println("data process stopped")
 					return
 				case <-chkSpin.C:
 					var curRpm float32
@@ -211,19 +111,22 @@ func main() {
 					}
 					if spin && curRpm < 6.6 {
 						spin = false
-						err := repository.StoreData(&d, arhDirName, false)
+						err := repository.StoreData(&d, arhDirName, false, cfg, b, ctx)
 						if err != nil {
 							log.Println(err)
 						}
-
+						if b != nil {
+							b.SendMessage(ctx, &bot.SendMessageParams{ChatID: -1003556463783, Text: "остановились"})
+						}
 					}
+
 				case <-ticker.C:
 					nowT := time.Now()
 
 					if nowT.Hour() != current_hour && !spin {
 						current_hour = nowT.Hour()
 
-						err := repository.StoreData(&d, arhDirName, true)
+						err := repository.StoreData(&d, arhDirName, true, cfg, b, ctx)
 						if err != nil {
 							log.Println(err)
 						} else {
@@ -238,15 +141,17 @@ func main() {
 						if err != nil {
 							log.Println(err)
 						}
+
 					}
 
 				default:
 					newTm := ""
 					crTm := ""
-					for key, item := range ccs {
+					for key, item := range d.Ccs {
 						if item.Cct >= key {
-
-							item.Resp, err = cl.Read(ctx, item.Req)
+							if cl.State() == opcua.Connected {
+								item.Resp, err = cl.Read(ctx, item.Req)
+							}
 							if err != nil {
 								log.Fatal("opcua request error: ", err)
 							}
@@ -259,16 +164,16 @@ func main() {
 							d.AddV(item.FirstPos+i, item.Resp.Results[i].Value.Value().(float32), crTm)
 						}
 
-						item.Cct += minCycle
+						item.Cct += d.MinCycle
 
-						if item.Cct <= minCycle {
+						if item.Cct <= d.MinCycle {
 							newTm = crTm
 						}
 					}
 					if newTm != "" {
 						d.Tm = append(d.Tm, newTm)
 					}
-					time.Sleep(time.Duration(minCycle) * time.Millisecond)
+					time.Sleep(time.Duration(d.MinCycle) * time.Millisecond)
 				}
 			}
 		}()
@@ -323,9 +228,13 @@ func main() {
 
 		fmt.Println("загружено, смотри в браузере")
 	}
-
+	if b != nil {
+		b.SendMessage(ctx, &bot.SendMessageParams{ChatID: -1003556463783, Text: "логер остановлен"})
+	}
 	close(stopSrvSig)
-
+	if cl != nil {
+		cl.Close(ctx)
+	}
 	cancel()
 
 	wg.Wait()
@@ -335,8 +244,8 @@ func trendView(w http.ResponseWriter, req *http.Request) {
 
 	line := charts.NewLine()
 
-	chsdTags := strings.Split(req.URL.Query().Get("tag1"), ",")
-	tag2 := strings.Split(req.URL.Query().Get("tag2"), ",")
+	chsdTags := strings.Split(req.URL.Query().Get("show"), ",")
+	tag2 := strings.Split(req.URL.Query().Get("zoom"), ",")
 
 	cnt := 1
 	lcnt := 0

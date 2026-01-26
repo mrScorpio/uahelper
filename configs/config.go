@@ -10,10 +10,11 @@ import (
 
 type Config struct {
 	Endpoint   string
-	WrMd       bool
+	Bot        bool
 	RdMd       bool
 	StoreCycle int
 	TrPort     string
+	BotToken   string
 }
 
 func LoadConfig() *Config {
@@ -22,17 +23,18 @@ func LoadConfig() *Config {
 		log.Println("error loading .env file, use default config")
 		return &Config{
 			Endpoint:   "opc.tcp://localhost:62544",
-			WrMd:       true,
+			Bot:        false,
 			RdMd:       false,
 			StoreCycle: 666,
 			TrPort:     ":22222",
+			BotToken:   "",
 		}
 	}
-	var wrmd, rdmd bool
+	var bot, rdmd bool
 	stcc := 66
-	wrmd, err = strconv.ParseBool(os.Getenv("WR"))
+	bot, err = strconv.ParseBool(os.Getenv("BOT"))
 	if err != nil {
-		wrmd = true
+		bot = false
 	}
 	rdmd, err = strconv.ParseBool(os.Getenv("RD"))
 	if err != nil {
@@ -46,12 +48,14 @@ func LoadConfig() *Config {
 	if trPort == "" {
 		trPort = ":22222"
 	}
+	botToken := os.Getenv("BOTOKEN")
 
 	return &Config{
 		Endpoint:   os.Getenv("EP"),
-		WrMd:       wrmd,
+		Bot:        bot,
 		RdMd:       rdmd,
 		StoreCycle: stcc,
 		TrPort:     trPort,
+		BotToken:   botToken,
 	}
 }
