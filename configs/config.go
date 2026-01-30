@@ -15,6 +15,7 @@ type Config struct {
 	StoreCycle int
 	TrPort     string
 	BotToken   string
+	BotChat    string
 }
 
 func LoadConfig() *Config {
@@ -28,6 +29,7 @@ func LoadConfig() *Config {
 			StoreCycle: 666,
 			TrPort:     ":22222",
 			BotToken:   "",
+			BotChat:    "",
 		}
 	}
 	var bot, rdmd bool
@@ -49,6 +51,7 @@ func LoadConfig() *Config {
 		trPort = ":22222"
 	}
 	botToken := os.Getenv("BOTOKEN")
+	botChat := os.Getenv("BOTCHAT")
 
 	return &Config{
 		Endpoint:   os.Getenv("EP"),
@@ -57,5 +60,6 @@ func LoadConfig() *Config {
 		StoreCycle: stcc,
 		TrPort:     trPort,
 		BotToken:   botToken,
+		BotChat:    botChat,
 	}
 }

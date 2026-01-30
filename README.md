@@ -1,8 +1,8 @@
 # Data arhiver with trends
 
 This tool helps to store data from OPC UA server and shows stored data with echarts.
-List of tags located in file "tags".
-By default storage is the zipped files those created once an hour.
+List of OPC UA tags must be located in file named "tags".
+By default storage is the zipped files created once an hour.
 
 TODO:
 - add modbus connection

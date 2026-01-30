@@ -3,22 +3,18 @@ package repository
 import (
 	"archive/zip"
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"time"
 
-	"github.com/go-telegram/bot"
-	"github.com/go-telegram/bot/models"
-	"github.com/mrscorpio/uahelper/configs"
 	"github.com/mrscorpio/uahelper/internal/tagdata"
 )
 
-func StoreData(d *tagdata.AllTags, arhDirName string, periodic bool, cfg *configs.Config, b *bot.Bot, ctx context.Context) error {
+func StoreData(d *tagdata.AllTags, arhDirName string, periodic bool) (*bytes.Buffer, string, error) {
 	data, err := json.Marshal(*d)
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	nowT := time.Now()
 	prevHourT := nowT.Add(-1 * time.Hour)
@@ -35,35 +31,35 @@ func StoreData(d *tagdata.AllTags, arhDirName string, periodic bool, cfg *config
 	w := zip.NewWriter(buf)
 	f, err := w.Create(filename + ".json")
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	_, err = f.Write(data)
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	w.Close()
 
 	err = os.WriteFile(arhDirName+filename, buf.Bytes(), 0755)
 
 	if err != nil {
-		return err
+		return nil, "", err
 	} else if periodic {
 		err := os.Remove(arhDirName + prevHourT.Format("20060102_15") + ".json")
 		if err != nil {
-			return err
+			return nil, "", err
 		}
 	}
-
-	if cfg.Bot && !periodic {
-		prms := &bot.SendDocumentParams{
-			ChatID:   -1003556463783,
-			Document: &models.InputFileUpload{Filename: filename, Data: bytes.NewReader(buf.Bytes())},
-			Caption:  "прога для просмотра: ",
+	/*
+		if cfg.Bot && !periodic {
+			prms := &bot.SendDocumentParams{
+				ChatID:   cfg.BotChat,
+				Document: &models.InputFileUpload{Filename: filename, Data: bytes.NewReader(buf.Bytes())},
+				Caption:  "прога для просмотра: https://disk.yandex.ru/d/P3LXkuUmBDBTtA",
+			}
+			b.SendDocument(ctx, prms)
 		}
-		b.SendDocument(ctx, prms)
-	}
-
-	return nil
+	*/
+	return buf, filename, nil
 }
 
 func ReadStored(d *tagdata.AllTags, filename string) error {
