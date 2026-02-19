@@ -41,11 +41,13 @@ func (mybot *TgBot) SendTxt(txt string) error {
 }
 
 func (mybot *TgBot) SendArh(buf *bytes.Buffer, filename string) error {
-
+	if buf == nil {
+		return fmt.Errorf("buf is nil, nothing to send by tgbot")
+	}
 	prms := &bot.SendDocumentParams{
 		ChatID:   mybot.cfg.BotChat,
 		Document: &models.InputFileUpload{Filename: filename, Data: bytes.NewReader(buf.Bytes())},
-		Caption:  "прога для просмотра: https://disk.yandex.ru/d/P3LXkuUmBDBTtA",
+		Caption:  "прога для просмотра: https://disk.yandex.ru/d/TXKDwhai1GHSbw",
 	}
 	_, err := mybot.B.SendDocument(mybot.ctx, prms)
 

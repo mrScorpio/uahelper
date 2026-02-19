@@ -4,3 +4,5 @@
 *.bin
 *.7z
 *.zip
+*.pem
+*.der

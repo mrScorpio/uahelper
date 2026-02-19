@@ -16,6 +16,8 @@ type Config struct {
 	TrPort     string
 	BotToken   string
 	BotChat    string
+	UaUser     string
+	UaPass     string
 }
 
 func LoadConfig() *Config {
@@ -30,6 +32,8 @@ func LoadConfig() *Config {
 			TrPort:     ":22222",
 			BotToken:   "",
 			BotChat:    "",
+			UaUser:     "",
+			UaPass:     "",
 		}
 	}
 	var bot, rdmd bool
@@ -52,6 +56,8 @@ func LoadConfig() *Config {
 	}
 	botToken := os.Getenv("BOTOKEN")
 	botChat := os.Getenv("BOTCHAT")
+	uaUser := os.Getenv("UAUSER")
+	uaPass := os.Getenv("UAPASS")
 
 	return &Config{
 		Endpoint:   os.Getenv("EP"),
@@ -61,5 +67,7 @@ func LoadConfig() *Config {
 		TrPort:     trPort,
 		BotToken:   botToken,
 		BotChat:    botChat,
+		UaUser:     uaUser,
+		UaPass:     uaPass,
 	}
 }

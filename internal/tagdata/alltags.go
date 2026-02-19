@@ -53,6 +53,12 @@ func (at *AllTags) NewTag(name string, dscr string, cycle int) *TagData {
 }
 
 func (at *AllTags) AddV(i int, v float32, t string) {
+	if v > 66666.66666 {
+		v = 0.0
+	}
+	if v < -66666.66666 {
+		v = 0.0
+	}
 	at.Tag[i].Y = append(at.Tag[i].Y, opts.LineData{Value: v})
 	//	at.Tag[i].T = append(at.Tag[i].T, t)
 	unit := ""
