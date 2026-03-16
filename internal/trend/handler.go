@@ -2,6 +2,7 @@ package trend
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-echarts/go-echarts/v2/charts"
@@ -18,6 +19,10 @@ func View(d *tagdata.AllTags, legSel map[string]bool) http.HandlerFunc {
 
 		chsdTags := strings.Split(req.URL.Query().Get("show"), ",")
 		tag2 := strings.Split(req.URL.Query().Get("zoom"), ",")
+		step, err := strconv.Atoi(req.URL.Query().Get("step"))
+		if err != nil {
+			step = 1
+		}
 
 		cnt := 1
 		lcnt := 0
@@ -72,10 +77,21 @@ func View(d *tagdata.AllTags, legSel map[string]bool) http.HandlerFunc {
 			line.ExtendYAxis(*newAxis)
 
 			for _, v := range item.Pos {
+				lenShow := len(d.Tag[v].Y) / step
 
-				line.SetXAxis(d.Tm)
+				tmShow := make([]string, lenShow)
+				vShow := make([]opts.LineData, lenShow)
+
+				for i := range tmShow { //прореживание
+					tmShow[i] = d.Tm[i*step]
+					vShow[i] = d.Tag[v].Y[i*step]
+				}
+
+				line.SetXAxis(tmShow)
+
 				seriesName := d.Tag[v].Name + "_" + d.Tag[v].Dscr
-				line.AddSeries(seriesName, d.Tag[v].Y,
+
+				line.AddSeries(seriesName, vShow,
 					charts.WithDatasetIndex(v),
 					charts.WithLineChartOpts(opts.LineChart{YAxisIndex: cnt}),
 				)

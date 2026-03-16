@@ -24,12 +24,7 @@ import (
 )
 
 const (
-	MdRd bool = false // для выбора перед компиляцией - логер 0 или просмотр 1
-)
-
-var (
-	d      tagdata.AllTags // пока структура с данными - это глобальная переменная
-	legSel map[string]bool // для отключения позиций легенды в трендах
+	MdRd bool = false // для выбора перед компиляцией - логер 0 или вьюер 1
 )
 
 func main() {
@@ -40,7 +35,9 @@ func main() {
 
 	arhDirName := "arh/" //папка для хранения файлов
 
-	fmt.Println("тренды пялить на localhost" + cfg.TrPort + "/?zoom=tag_for_right_axis&show=tag1,tag2,...")
+	httpAddr := "http://localhost" + cfg.TrPort + "/?zoom=st50_bzk&show=zt504&step=1"
+
+	fmt.Println("тренды пялить на", httpAddr)
 
 	b, err := tgbot.NewBot(ctx, cfg, MdRd) // бот, в режиме просмотра нил
 	if err != nil {
@@ -52,7 +49,8 @@ func main() {
 		log.Println(err)
 	}
 
-	legSel = make(map[string]bool) // для отключения позиций легенды в трендах
+	d := new(tagdata.AllTags)
+	legSel := make(map[string]bool) // для отключения позиций легенды в трендах
 
 	var wg sync.WaitGroup
 
@@ -90,7 +88,7 @@ func main() {
 			}
 		}
 
-		err = d.ReadOpcTagList(ctx, cl[0]) // вычитываем параметры с единицами измерения, комментами согласно списку тэгов
+		err = d.ReadOpcTagList(ctx, cl) // вычитываем параметры с единицами измерения, комментами согласно списку тэгов
 		if err != nil {
 			log.Println(err)
 		}
@@ -145,7 +143,7 @@ func main() {
 					if spin && curRpm < 6.6 {
 						spin = false
 						fire = false
-						buf, filename, err := repository.StoreData(&d, arhDirName, false)
+						buf, filename, err := repository.StoreData(d, arhDirName, false)
 						if err != nil {
 							log.Println(err)
 						}
@@ -183,7 +181,7 @@ func main() {
 					if nowT.Hour() != current_hour && !spin {
 						current_hour = nowT.Hour()
 						// если пошол новый час, то пишем архив и чистим данные
-						_, _, err := repository.StoreData(&d, arhDirName, true)
+						_, _, err := repository.StoreData(d, arhDirName, true)
 						if err != nil {
 							log.Println(err)
 						} else {
@@ -211,7 +209,15 @@ func main() {
 						// если пришло время обратиться, то обращаемся
 						if item.Cct >= key {
 							if cl[0].State() == opcua.Connected {
-								item.Resp, err = cl[0].Read(ctx, item.Req)
+								clNum := 0
+								if len(cl) > 1 {
+									if cl[1] != nil {
+										if cl[1].State() == opcua.Connected {
+											clNum = 1 // если достучались до второго узла, то тянем данные с него
+										}
+									}
+								}
+								item.Resp, err = cl[clNum].Read(ctx, item.Req)
 							}
 							if err != nil {
 								log.Fatal("opcua request error: ", err)
@@ -223,7 +229,12 @@ func main() {
 						for i := range item.Resp.Results {
 							crTm = item.Resp.Results[i].ServerTimestamp.Local().Format("15:04:05.000")
 							v := item.Resp.Results[i].Value.Value()
-							d.AddV(item.FirstPos+i, v.(float32), crTm)
+							if v == nil {
+								d.AddV(item.FirstPos+i, 6.6, crTm)
+								fmt.Println("tag N", item.FirstPos+i, "has no data")
+							} else {
+								d.AddV(item.FirstPos+i, v.(float32), crTm)
+							}
 						}
 
 						item.Cct += d.MinCycle // для контроля момента обращения
@@ -264,7 +275,7 @@ func main() {
 	go func() {
 		defer wg.Done()
 
-		mux.Handle("/", trend.View(&d, legSel))
+		mux.Handle("/", trend.View(d, legSel))
 		err := srv.ListenAndServe()
 		if err != nil {
 			log.Println(err)
@@ -276,7 +287,7 @@ func main() {
 	// тут ждем файл с данными для просмотра
 	for {
 		if MdRd {
-			cmd := exec.Command("c:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", "http://localhost:22222/?zoom=st50_bzk&show=zt504")
+			cmd := exec.Command("c:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe", httpAddr)
 			err := cmd.Start()
 			if err != nil {
 				log.Println(err)
@@ -289,7 +300,7 @@ func main() {
 		if strings.TrimSpace(filename) == "q" { // или команду останова
 			break
 		}
-		err := repository.ReadStored(&d, filename)
+		err := repository.ReadStored(d, filename)
 		if err != nil {
 			log.Println(err)
 			continue

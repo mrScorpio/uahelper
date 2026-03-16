@@ -27,7 +27,7 @@ func NewCycle() *CycleData {
 }
 
 func (cd *CycleData) AddTag(tagname string) error {
-	id, err := ua.ParseNodeID("ns=1;s=REGUL_R500." + tagname + ".VALUE")
+	id, err := ua.ParseNodeID(tagname)
 	if err != nil {
 		return err
 	}

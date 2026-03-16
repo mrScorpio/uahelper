@@ -108,8 +108,8 @@ func (at *AllTags) Clean() {
 	at.Tm = make([]string, 0, 6666)
 }
 
-func (d *AllTags) ReadOpcTagList(ctx context.Context, cl *opcua.Client) error {
-	if cl == nil {
+func (d *AllTags) ReadOpcTagList(ctx context.Context, cl []*opcua.Client) error {
+	if cl[0] == nil {
 		return nil
 	}
 
@@ -127,6 +127,19 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl *opcua.Client) error {
 	d.MinCycle = 666
 	maxCycle := 6
 	i := 0
+
+	preTag := "ns=1;s=REGUL_R500."
+	postTag := ".VALUE"
+
+	if len(cl) > 1 {
+		if cl[1] != nil {
+			if cl[1].State() == opcua.Connected {
+				preTag = "ns=2;s=Application."
+				postTag = ".OUT.VALUE"
+			}
+		}
+	}
+
 	for scanner.Scan() {
 		c, err := strconv.Atoi(strings.TrimSuffix(scanner.Text(), ":"))
 		if err != nil {
@@ -134,7 +147,7 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl *opcua.Client) error {
 			tagname = append(tagname, nextTag)
 			cycle = append(cycle, nextCycle)
 
-			err := d.Ccs[nextCycle].AddTag(nextTag)
+			err := d.Ccs[nextCycle].AddTag(preTag + nextTag + postTag)
 			if err != nil {
 				return err
 			}
@@ -179,7 +192,7 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl *opcua.Client) error {
 		}
 
 		if newTags {
-			node[i] = cl.Node(id[i])
+			node[i] = cl[0].Node(id[i])
 			descr, err := node[i].Description(ctx)
 			if err != nil {
 				log.Fatal(err)
@@ -206,7 +219,7 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl *opcua.Client) error {
 	var resp *ua.ReadResponse
 
 	if newTags {
-		resp, err = cl.Read(ctx, reqUnits)
+		resp, err = cl[0].Read(ctx, reqUnits)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -226,5 +239,20 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl *opcua.Client) error {
 		}
 	}
 
+	return nil
+}
+
+func (at *AllTags) ChangeId() error {
+	for j := range at.Ccs {
+		firstPos := at.Ccs[j].FirstPos
+		for i := range at.Ccs[j].ReqTags {
+			ids := "ns=2;s=Application.AI." + at.Tag[firstPos+i].Name + ".OUT.VALUE"
+			id, err := ua.ParseNodeID(ids)
+			if err != nil {
+				return err
+			}
+			at.Ccs[j].ReqTags[i] = &ua.ReadValueID{NodeID: id}
+		}
+	}
 	return nil
 }
