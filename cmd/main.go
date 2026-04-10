@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -12,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"gioui.org/app"
+	"gioui.org/unit"
 	"github.com/gopcua/opcua"
 	"github.com/gopcua/opcua/ua"
 	"github.com/mrscorpio/uahelper/configs"
@@ -19,23 +22,36 @@ import (
 	"github.com/mrscorpio/uahelper/internal/tagdata"
 	"github.com/mrscorpio/uahelper/internal/trend"
 	"github.com/mrscorpio/uahelper/internal/tripreport"
+	"github.com/mrscorpio/uahelper/internal/ui"
 	"github.com/mrscorpio/uahelper/pkg/opcuacl"
 	"github.com/mrscorpio/uahelper/pkg/tgbot"
 )
 
 const (
-	MdRd bool = false // для выбора перед компиляцией - логер 0 или вьюер 1
+	MdRd bool = true // для выбора перед компиляцией - логер 0 или вьюер 1
 )
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	mux := http.NewServeMux()
+
+	ui.NewData = make(chan string) //канал для передачи имени файла от уи в бэкенд
+
 	cfg := configs.LoadConfig()
 
 	arhDirName := "arh/" //папка для хранения файлов
 
 	httpAddr := "http://localhost" + cfg.TrPort + "/?zoom=st50_bzk&show=zt504&step=1"
+
+	conn, err := net.Dial("tcp", "ya.ru:80")
+	if err != nil {
+		log.Println(err)
+	} else {
+		myip := strings.Split(conn.LocalAddr().String(), ":")
+		httpAddr = "http://" + myip[0] + cfg.TrPort + "/?zoom=st50_bzk&show=zt504&step=1"
+	}
 
 	fmt.Println("тренды пялить на", httpAddr)
 
@@ -50,6 +66,7 @@ func main() {
 	}
 
 	d := new(tagdata.AllTags)
+	var wTime time.Time
 	legSel := make(map[string]bool) // для отключения позиций легенды в трендах
 
 	var wg sync.WaitGroup
@@ -206,6 +223,10 @@ func main() {
 					crTm := ""
 					// перебираем циклы и формируем обращения к серверу
 					for key, item := range d.Ccs {
+						if key == 88 && ui.Gogo {
+							ui.ProgInc <- 0.006
+						}
+
 						// если пришло время обратиться, то обращаемся
 						if item.Cct >= key {
 							if cl[0].State() == opcua.Connected {
@@ -252,7 +273,7 @@ func main() {
 		}()
 	}
 	// хттп-сервер для отображения трендов
-	mux := http.NewServeMux()
+
 	srv := http.Server{
 		Addr:    cfg.TrPort,
 		Handler: mux,
@@ -275,13 +296,50 @@ func main() {
 	go func() {
 		defer wg.Done()
 
-		mux.Handle("/", trend.View(d, legSel))
+		mux.Handle("/", trend.View(d, legSel, &wTime))
 		err := srv.ListenAndServe()
 		if err != nil {
 			log.Println(err)
 		}
 
 	}()
+
+	if MdRd {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			w := new(app.Window)
+			w.Option(app.Title("настройки"))
+			w.Option(app.Size(unit.Dp(266), unit.Dp(444)))
+			if err := ui.DrawSetup(w); err != nil {
+				log.Println(err)
+			}
+			log.Println("stop from ui")
+			close(stopSrvSig) // отправляет сигнал останова хттп-серверу
+			close(ui.NewData)
+			for i := range cl {
+				if cl[i] != nil {
+					cl[i].Close(ctx) // отключаем описи юа клиент
+				}
+			}
+			cancel() // отменяем контекст для завершения всех процессов
+			wg.Done()
+			wg.Wait() // ждем останова всех рутин
+			os.Exit(0)
+		}()
+
+		go app.Main()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for name := range ui.NewData {
+
+				wTime, err = repository.ReadStored(d, name)
+
+			}
+		}()
+	}
 
 	filename := ""
 	// тут ждем файл с данными для просмотра
@@ -300,7 +358,8 @@ func main() {
 		if strings.TrimSpace(filename) == "q" { // или команду останова
 			break
 		}
-		err := repository.ReadStored(d, filename)
+		wTime, err = repository.ReadStored(d, filename)
+
 		if err != nil {
 			log.Println(err)
 			continue
@@ -312,6 +371,7 @@ func main() {
 		b.SendTxt("логер остановлен")
 	}
 	close(stopSrvSig) // отправляет сигнал останова хттп-серверу
+	close(ui.NewData)
 	for i := range cl {
 		if cl[i] != nil {
 			cl[i].Close(ctx) // отключаем описи юа клиент

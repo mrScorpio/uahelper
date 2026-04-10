@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/mrscorpio/uahelper/internal/tagdata"
@@ -62,29 +64,39 @@ func StoreData(d *tagdata.AllTags, arhDirName string, periodic bool) (*bytes.Buf
 	return buf, filename, nil
 }
 
-func ReadStored(d *tagdata.AllTags, filename string) error {
+func ReadStored(d *tagdata.AllTags, filename string) (time.Time, error) {
+	tm := time.Now()
 	r, err := zip.OpenReader(filename)
 	if err != nil {
-		return err
+		return tm, err
 	}
 	defer r.Close()
+
+	dateFromFile := strings.Split(filename, "_")
+	if len(dateFromFile) > 2 {
+		tm, err = time.Parse("0102_1504", dateFromFile[1]+"_"+dateFromFile[2])
+		if err != nil {
+			log.Println(err)
+		}
+	}
+
 	buf := new(bytes.Buffer)
 	for _, f := range r.File {
 
 		rc, err := f.Open()
 		if err != nil {
-			return err
+			return tm, err
 		}
 		n, err := buf.ReadFrom(rc)
 		if err != nil {
-			return err
+			return tm, err
 		}
 		fmt.Println(n)
 		rc.Close()
 	}
 	err = json.Unmarshal(buf.Bytes(), d)
 	if err != nil {
-		return err
+		return tm, err
 	}
-	return nil
+	return tm, nil
 }

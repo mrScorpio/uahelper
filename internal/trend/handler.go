@@ -4,15 +4,17 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-echarts/go-echarts/v2/charts"
+	"github.com/go-echarts/go-echarts/v2/event"
 	"github.com/go-echarts/go-echarts/v2/opts"
 	"github.com/go-echarts/go-echarts/v2/types"
 	"github.com/mrscorpio/uahelper/internal/tagdata"
 )
 
 // хэндлер для отрисовки трендов
-func View(d *tagdata.AllTags, legSel map[string]bool) http.HandlerFunc {
+func View(d *tagdata.AllTags, legSel map[string]bool, wTime *time.Time) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 
 		line := charts.NewLine()
@@ -107,6 +109,8 @@ func View(d *tagdata.AllTags, legSel map[string]bool) http.HandlerFunc {
 			legSel[tagname+"_"+d.Descr[tagname]] = true
 		}
 
+		clickHandler := `(params) => alert(params.seriesIndex)`
+
 		line.SetGlobalOptions(
 			charts.WithInitializationOpts(opts.Initialization{
 				Theme:     types.ThemeWesteros,
@@ -114,6 +118,7 @@ func View(d *tagdata.AllTags, legSel map[string]bool) http.HandlerFunc {
 				Height:    "888px",
 				PageTitle: "чёткие трендики",
 			}),
+			charts.WithTitleOpts(opts.Title{Title: wTime.Format(time.Stamp), Left: "center"}),
 			charts.WithGridOpts(opts.Grid{Width: "999px"}),
 			charts.WithLegendOpts(opts.Legend{Type: "scroll", Orient: "vertical", X: "right", Selected: legSel}),
 			charts.WithDataZoomOpts(
@@ -121,6 +126,12 @@ func View(d *tagdata.AllTags, legSel map[string]bool) http.HandlerFunc {
 				opts.DataZoom{Type: "inside", Orient: "vertical", YAxisIndex: zoomAxis},
 			),
 			charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true), Trigger: "axis"}),
+			charts.WithEventListeners(
+				event.Listener{
+					EventName: "dblclick",
+					Handler:   opts.FuncOpts(clickHandler),
+				},
+			),
 		)
 
 		line.Render(w)
