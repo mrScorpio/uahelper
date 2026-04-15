@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	MdRd bool = true // для выбора перед компиляцией - логер 0 или вьюер 1
+	MdRd bool = false // для выбора перед компиляцией - логер 0 или вьюер 1
 )
 
 func main() {
@@ -38,6 +38,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	ui.NewData = make(chan string) //канал для передачи имени файла от уи в бэкенд
+	ui.ProgInc = make(chan float32)
 
 	cfg := configs.LoadConfig()
 
@@ -52,6 +53,7 @@ func main() {
 		myip := strings.Split(conn.LocalAddr().String(), ":")
 		httpAddr = "http://" + myip[0] + cfg.TrPort + "/?zoom=st50_bzk&show=zt504&step=1"
 	}
+	conn.Close()
 
 	fmt.Println("тренды пялить на", httpAddr)
 
@@ -135,6 +137,7 @@ func main() {
 				select {
 				case <-ctx.Done():
 					log.Println("data process stopped")
+					ui.ProgInc <- 6
 					return
 				case <-chkSpin.C:
 					var curRpm float32
@@ -223,8 +226,17 @@ func main() {
 					crTm := ""
 					// перебираем циклы и формируем обращения к серверу
 					for key, item := range d.Ccs {
-						if key == 88 && ui.Gogo {
-							ui.ProgInc <- 0.006
+						if key == 222 {
+							//ui.ProgInc <- 0.006
+							if len(d.Tm) > 696 {
+								err := ui.DrawPlot(d)
+								if err != nil {
+									log.Println(err)
+								}
+
+								ui.ProgInc <- 1
+
+							}
 						}
 
 						// если пришло время обратиться, то обращаемся
@@ -304,43 +316,43 @@ func main() {
 
 	}()
 
-	if MdRd {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			w := new(app.Window)
-			w.Option(app.Title("настройки"))
-			w.Option(app.Size(unit.Dp(266), unit.Dp(444)))
-			if err := ui.DrawSetup(w); err != nil {
-				log.Println(err)
+	//	if MdRd {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		w := new(app.Window)
+		w.Option(app.Title("настройки"))
+		w.Option(app.Size(unit.Dp(266), unit.Dp(444)))
+		if err := ui.DrawSetup(w); err != nil {
+			log.Println(err)
+		}
+		log.Println("stop from ui")
+		close(stopSrvSig) // отправляет сигнал останова хттп-серверу
+		close(ui.NewData)
+
+		for i := range cl {
+			if cl[i] != nil {
+				cl[i].Close(ctx) // отключаем описи юа клиент
 			}
-			log.Println("stop from ui")
-			close(stopSrvSig) // отправляет сигнал останова хттп-серверу
-			close(ui.NewData)
-			for i := range cl {
-				if cl[i] != nil {
-					cl[i].Close(ctx) // отключаем описи юа клиент
-				}
-			}
-			cancel() // отменяем контекст для завершения всех процессов
-			wg.Done()
-			wg.Wait() // ждем останова всех рутин
-			os.Exit(0)
-		}()
+		}
+		cancel() // отменяем контекст для завершения всех процессов
+		wg.Done()
+		wg.Wait() // ждем останова всех рутин
+		os.Exit(0)
+	}()
 
-		go app.Main()
+	go app.Main()
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for name := range ui.NewData {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for name := range ui.NewData {
 
-				wTime, err = repository.ReadStored(d, name)
+			wTime, err = repository.ReadStored(d, name)
 
-			}
-		}()
-	}
-
+		}
+	}()
+	//	}
 	filename := ""
 	// тут ждем файл с данными для просмотра
 	for {
@@ -372,6 +384,7 @@ func main() {
 	}
 	close(stopSrvSig) // отправляет сигнал останова хттп-серверу
 	close(ui.NewData)
+
 	for i := range cl {
 		if cl[i] != nil {
 			cl[i].Close(ctx) // отключаем описи юа клиент
