@@ -11,6 +11,7 @@ require (
 require (
 	gioui.org v0.9.0
 	github.com/go-telegram/bot v1.17.0
+	github.com/vicanso/go-charts/v2 v2.6.10
 	gonum.org/v1/plot v0.16.0
 )
 
@@ -22,9 +23,11 @@ require (
 	git.sr.ht/~sbinet/gg v0.6.0 // indirect
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b // indirect
 	github.com/campoy/embedmd v1.0.0 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-text/typesetting v0.3.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/wcharczuk/go-chart/v2 v2.1.0 // indirect
 	golang.org/x/exp/shiny v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
 	golang.org/x/image v0.26.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect

@@ -15,8 +15,8 @@ import (
 
 type UnitData struct {
 	Pos []int
-	Max float32
-	Min float32
+	Max float64
+	Min float64
 }
 
 func NewUnit() *UnitData {
@@ -52,7 +52,7 @@ func (at *AllTags) NewTag(name string, dscr string, cycle int) *TagData {
 	}
 }
 
-func (at *AllTags) AddV(i int, v float32, t string) {
+func (at *AllTags) AddV(i int, v float64, t string) {
 	if v > 66666.66666 {
 		v = 0.0
 	}
@@ -61,33 +61,35 @@ func (at *AllTags) AddV(i int, v float32, t string) {
 	}
 	at.Tag[i].Y = append(at.Tag[i].Y, opts.LineData{Value: v})
 	//	at.Tag[i].T = append(at.Tag[i].T, t)
-	unit := ""
+	unit := at.Tag[i].Unit
 	if len(at.Tag[i].Y) == 1 {
 		at.Tag[i].Max = v
 	}
 
+	if at.Tag[i].Min == 0.0 {
+		at.Tag[i].Min = at.Tag[i].Max
+
+		if at.Unit[unit].Min == 0.0 {
+			at.Unit[unit].Min = at.Unit[unit].Max
+		}
+	}
+
 	if v > at.Tag[i].Max || v < at.Tag[i].Min {
-	l1:
-		for key := range at.Unit {
-			for _, v := range at.Unit[key].Pos {
-				if i == v {
-					unit = key
-					break l1
+		/*	l1:
+			for key := range at.Unit {
+				for _, v := range at.Unit[key].Pos {
+					if i == v {
+						unit = key
+						break l1
+					}
 				}
 			}
-		}
+		*/
 
 		if v > at.Tag[i].Max {
 			at.Tag[i].Max = v
 			if at.Tag[i].Max > at.Unit[unit].Max {
 				at.Unit[unit].Max = at.Tag[i].Max
-			}
-		}
-
-		if at.Tag[i].Min == 0.0 {
-			at.Tag[i].Min = at.Tag[i].Max
-			if at.Unit[unit].Min == 0.0 {
-				at.Unit[unit].Min = at.Unit[unit].Max
 			}
 		}
 
@@ -231,6 +233,7 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl []*opcua.Client) error 
 			if key == "°С" {
 				key = "°C"
 			}
+			d.Tag[i].Unit = key
 			_, ok := d.Unit[key]
 			if !ok {
 				d.Unit[key] = NewUnit()

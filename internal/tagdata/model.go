@@ -5,12 +5,12 @@ import (
 )
 
 type TagData struct {
-	Name     string          `json:"name"`
-	Dscr     string          `json:"dscr"`
-	Min      float32         `json:"min"`
-	Max      float32         `json:"max"`
-	CycleMs  int             `json:"cyclems"`
-	SensType string          `json:"senstype"`
-	Y        []opts.LineData `json:"y"`
-	T        []string        `json:"t"`
+	Name    string          `json:"name"`
+	Dscr    string          `json:"dscr"`
+	Min     float64         `json:"min"`
+	Max     float64         `json:"max"`
+	CycleMs int             `json:"cyclems"`
+	Unit    string          `json:"senstype"`
+	Y       []opts.LineData `json:"y"`
+	T       []string        `json:"t"`
 }

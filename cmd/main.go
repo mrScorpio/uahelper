@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image"
 	"log"
 	"net"
 	"net/http"
@@ -27,9 +28,7 @@ import (
 	"github.com/mrscorpio/uahelper/pkg/tgbot"
 )
 
-const (
-	MdRd bool = false // для выбора перед компиляцией - логер 0 или вьюер 1
-)
+const MdRd bool = false // для выбора перед компиляцией - логер 0 или вьюер 1
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -38,7 +37,8 @@ func main() {
 	mux := http.NewServeMux()
 
 	ui.NewData = make(chan string) //канал для передачи имени файла от уи в бэкенд
-	ui.ProgInc = make(chan float32)
+	ui.Cmd = make(chan int)
+	ui.Gogo = true
 
 	cfg := configs.LoadConfig()
 
@@ -123,7 +123,68 @@ func main() {
 		}
 
 		wg.Add(1)
-		// рутина отвечает за запросы к серверу и складывание данных в файлы
+		// рутина отвечает за запросы к серверу данных
+		go func() {
+			defer wg.Done()
+
+			for {
+				select {
+				case <-ctx.Done():
+					log.Println("data process stopped")
+					return
+
+				default:
+					newTm := ""
+					crTm := ""
+					// перебираем циклы и формируем обращения к серверу
+					for key, item := range d.Ccs {
+						// если пришло время обратиться, то обращаемся
+						if item.Cct >= key {
+							if cl[0].State() == opcua.Connected {
+								clNum := 0
+								if len(cl) > 1 {
+									if cl[1] != nil {
+										if cl[1].State() == opcua.Connected {
+											clNum = 1 // если достучались до второго узла, то тянем данные с него
+										}
+									}
+								}
+								item.Resp, err = cl[clNum].Read(ctx, item.Req)
+							}
+							if err != nil {
+								log.Fatal("opcua request error: ", err)
+							}
+
+							item.Cct = 0
+						}
+						// заполняем слайсы новыми данными
+						for i := range item.Resp.Results {
+							crTm = item.Resp.Results[i].ServerTimestamp.Local().Format("15:04:05.000")
+							v := item.Resp.Results[i].Value.Value()
+							if v == nil {
+								d.AddV(item.FirstPos+i, 6.6, crTm)
+								fmt.Println("tag N", item.FirstPos+i, "has no data")
+							} else {
+								d.AddV(item.FirstPos+i, float64(v.(float32)), crTm)
+							}
+						}
+
+						item.Cct += d.MinCycle // для контроля момента обращения
+
+						if item.Cct <= d.MinCycle {
+							newTm = crTm
+						}
+					}
+					if newTm != "" {
+						d.Tm = append(d.Tm, newTm)
+					}
+					time.Sleep(time.Duration(d.MinCycle) * time.Millisecond) // ждем время минимального цикла
+				}
+			}
+		}()
+
+		wg.Add(1)
+		// рутина отвечает складывание данных в файлы и отрисовку онлайн-тренда
 		go func() {
 			if b != nil {
 				b.SendTxt("логер запущен")
@@ -136,13 +197,13 @@ func main() {
 			for {
 				select {
 				case <-ctx.Done():
-					log.Println("data process stopped")
-					ui.ProgInc <- 6
+					log.Println("file process stopped")
+					ui.Cmd <- 6
 					return
 				case <-chkSpin.C:
-					var curRpm float32
+					var curRpm float64
 					if len(d.Tag[rpmInd].Y) > 0 {
-						curRpm = d.Tag[rpmInd].Y[len(d.Tag[rpmInd].Y)-1].Value.(float32) // если нашли тэг оборотов, то зачитываем его
+						curRpm = d.Tag[rpmInd].Y[len(d.Tag[rpmInd].Y)-1].Value.(float64) // если нашли тэг оборотов, то зачитываем его
 					}
 					// момент запуска с очисткой данных
 					if !spin && curRpm > 666.666 {
@@ -222,70 +283,20 @@ func main() {
 					}
 
 				default:
-					newTm := ""
-					crTm := ""
-					// перебираем циклы и формируем обращения к серверу
-					for key, item := range d.Ccs {
-						if key == 222 {
-							//ui.ProgInc <- 0.006
-							if len(d.Tm) > 696 {
-								err := ui.DrawPlot(d)
-								if err != nil {
-									log.Println(err)
-								}
-
-								ui.ProgInc <- 1
-
-							}
-						}
-
-						// если пришло время обратиться, то обращаемся
-						if item.Cct >= key {
-							if cl[0].State() == opcua.Connected {
-								clNum := 0
-								if len(cl) > 1 {
-									if cl[1] != nil {
-										if cl[1].State() == opcua.Connected {
-											clNum = 1 // если достучались до второго узла, то тянем данные с него
-										}
-									}
-								}
-								item.Resp, err = cl[clNum].Read(ctx, item.Req)
-							}
-							if err != nil {
-								log.Fatal("opcua request error: ", err)
-							}
-
-							item.Cct = 0
-						}
-						// заполняем слайсы новыми данными
-						for i := range item.Resp.Results {
-							crTm = item.Resp.Results[i].ServerTimestamp.Local().Format("15:04:05.000")
-							v := item.Resp.Results[i].Value.Value()
-							if v == nil {
-								d.AddV(item.FirstPos+i, 6.6, crTm)
-								fmt.Println("tag N", item.FirstPos+i, "has no data")
-							} else {
-								d.AddV(item.FirstPos+i, v.(float32), crTm)
-							}
-						}
-
-						item.Cct += d.MinCycle // для контроля момента обращения
-
-						if item.Cct <= d.MinCycle {
-							newTm = crTm
+					if ui.Gogo {
+						err := ui.DrawChart(d)
+						if err != nil {
+							log.Println(err)
 						}
 					}
-					if newTm != "" {
-						d.Tm = append(d.Tm, newTm)
-					}
-					time.Sleep(time.Duration(d.MinCycle) * time.Millisecond) // ждем время минимального цикла
+					time.Sleep(time.Duration(999) * time.Millisecond)
+
 				}
 			}
 		}()
 	}
-	// хттп-сервер для отображения трендов
 
+	// хттп-сервер для отображения трендов
 	srv := http.Server{
 		Addr:    cfg.TrPort,
 		Handler: mux,
@@ -316,14 +327,28 @@ func main() {
 
 	}()
 
-	//	if MdRd {
+	if MdRd {
+		ui.BufImg = image.NewRGBA(image.Rect(0, 0, 22, 16))
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for name := range ui.NewData {
+				wTime, err = repository.ReadStored(d, name)
+			}
+		}()
+	}
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		w := new(app.Window)
-		w.Option(app.Title("настройки"))
-		w.Option(app.Size(unit.Dp(266), unit.Dp(444)))
-		if err := ui.DrawSetup(w); err != nil {
+		if MdRd {
+			w.Option(app.Title("вьюер"))
+		} else {
+			w.Option(app.Title("логер"))
+		}
+		w.Option(app.Size(unit.Dp(600), unit.Dp(800)))
+		if err := ui.DrawUi(w, d); err != nil {
 			log.Println(err)
 		}
 		log.Println("stop from ui")
@@ -343,16 +368,6 @@ func main() {
 
 	go app.Main()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for name := range ui.NewData {
-
-			wTime, err = repository.ReadStored(d, name)
-
-		}
-	}()
-	//	}
 	filename := ""
 	// тут ждем файл с данными для просмотра
 	for {
