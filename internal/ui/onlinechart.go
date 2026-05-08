@@ -5,36 +5,54 @@ import (
 	"fmt"
 	"image"
 
+	"github.com/mrscorpio/uahelper/configs"
 	"github.com/mrscorpio/uahelper/internal/tagdata"
 	vcharts "github.com/vicanso/go-charts/v2"
 )
 
-func DrawChart(d *tagdata.AllTags) error {
-	//last := len(d.Tag[1].Y) - 1
-	values := make([][]float64, 6)
-	values[0] = make([]float64, Diap)
+func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
+	values := make([][]float64, len(cfg.ShowTags))
+	i := 0
+	order := make(map[int]int)
+	minInd := len(d.Tm) - 1
+	for key, v := range cfg.ShowTags {
+		if v {
+			values[i] = make([]float64, Diap)
+			order[key] = i
+			if len(d.Tag[key].Y) < minInd+1 {
+				minInd = len(d.Tag[key].Y) - 1
+			}
+			if ScAuto {
+				if d.Tag[key].Max > ScMax {
+					ScMax = d.Tag[key].Max
+				}
+				if d.Tag[key].Min < ScMin || ScMin == 0.0 {
+					ScMin = d.Tag[key].Min
+				}
+			}
+			i++
+		}
+	}
+
 	tm := make([]string, Diap)
 	if Gogo {
-		LastInd = len(d.Tag[1].Y) - 1
+		LastInd = minInd
 	}
 	j := LastInd
 	if j > 0 {
 		for i := Diap - 1; i >= 0; i-- {
 			tm[i] = d.Tm[j]
-			values[0][i] = d.Tag[1].Y[j].Value.(float64)
+			for key, v := range cfg.ShowTags {
+				if v {
+					values[order[key]][i] = d.Tag[key].Y[j].Value.(float64)
+				}
+			}
 			if j > 0 {
 				j--
 			}
 		}
 	}
-	if ScAuto {
-		if d.Tag[1].Max > ScMax {
-			ScMax = d.Tag[1].Max
-		}
-		if d.Tag[1].Min < ScMin || ScMin == 0.0 {
-			ScMin = d.Tag[1].Min
-		}
-	}
+
 	p, err := vcharts.LineRender(
 		values,
 		vcharts.XAxisDataOptionFunc(tm),
@@ -42,7 +60,7 @@ func DrawChart(d *tagdata.AllTags) error {
 		func(opt *vcharts.ChartOption) {
 			opt.SymbolShow = vcharts.FalseFlag()
 			opt.LineStrokeWidth = 1
-			opt.Title.Text = d.Tag[1].Unit
+			//			opt.Title.Text = d.Tag[s].Unit
 			opt.XAxis.FontSize = 8
 			opt.YAxisOptions[0].FontSize = 8
 

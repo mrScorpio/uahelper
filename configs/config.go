@@ -1,6 +1,7 @@
 package configs
 
 import (
+	"encoding/json"
 	"log"
 	"os"
 	"strconv"
@@ -18,10 +19,20 @@ type Config struct {
 	BotChat    string
 	UaUser     string
 	UaPass     string
+	ShowTags   map[int]bool
 }
 
 func LoadConfig() *Config {
-	err := godotenv.Load()
+	data, err := os.ReadFile("cfg.json")
+	if err == nil {
+		cfg := new(Config)
+		err := json.Unmarshal(data, &cfg)
+		if err == nil {
+			return cfg
+		}
+	}
+	showTags := make(map[int]bool)
+	err = godotenv.Load()
 	if err != nil {
 		log.Println("error loading .env file, use default config")
 		return &Config{
@@ -34,6 +45,7 @@ func LoadConfig() *Config {
 			BotChat:    "",
 			UaUser:     "",
 			UaPass:     "",
+			ShowTags:   showTags,
 		}
 	}
 	var bot, rdmd bool
@@ -69,5 +81,18 @@ func LoadConfig() *Config {
 		BotChat:    botChat,
 		UaUser:     uaUser,
 		UaPass:     uaPass,
+		ShowTags:   showTags,
 	}
+}
+
+func (c *Config) WrFile() error {
+	data, err := json.Marshal(&c)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile("cfg.json", data, 0755)
+	if err != nil {
+		return err
+	}
+	return nil
 }

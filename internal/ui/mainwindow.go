@@ -19,6 +19,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mrscorpio/uahelper/configs"
 	"github.com/mrscorpio/uahelper/internal/tagdata"
 )
 
@@ -39,7 +40,7 @@ var (
 	ChartH  int
 )
 
-func DrawUi(w *app.Window, d *tagdata.AllTags) error {
+func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config) error {
 	var ops op.Ops
 
 	myBtn := new(widget.Clickable)
@@ -87,6 +88,8 @@ func DrawUi(w *app.Window, d *tagdata.AllTags) error {
 
 	filesDD := NewDropdown(arhFiles)
 
+	taglist := NewTaglist(d, cfg)
+
 	th := material.NewTheme()
 	var lastLen float32 = 0.0
 	for {
@@ -103,6 +106,16 @@ func DrawUi(w *app.Window, d *tagdata.AllTags) error {
 				crSld.Value = 1
 				lastLen = float32(len(d.Tm) - 1)
 			}
+			if myBtn.Clicked(gtx) {
+				taglist.isOpen = !taglist.isOpen
+
+				if taglist.isOpen {
+					go taglist.DrawPopup(th, cfg)
+				} else {
+					taglist.w.Invalidate()
+					taglist.w.Perform(system.ActionClose)
+				}
+			}
 
 			if crSld.Dragging() {
 				if Gogo {
@@ -112,7 +125,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags) error {
 				if crSld.Value < 1 {
 					swUpdPlot.Value = false
 				}
-				DrawChart(d)
+				DrawChart(d, cfg)
 			}
 
 			//ops.Reset()
@@ -150,7 +163,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags) error {
 					maxInp.SetCaret(0, 2)
 				}
 				if !Gogo {
-					DrawChart(d)
+					DrawChart(d, cfg)
 				}
 			}
 
@@ -163,7 +176,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags) error {
 					minInp.SetCaret(0, 2)
 				}
 				if !Gogo {
-					DrawChart(d)
+					DrawChart(d, cfg)
 				}
 			}
 
@@ -171,7 +184,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags) error {
 				Diap = int64(diapSld.Value * 10000)
 				ScAuto = true
 				if !Gogo {
-					DrawChart(d)
+					DrawChart(d, cfg)
 				}
 			}
 
@@ -391,16 +404,30 @@ func DrawUi(w *app.Window, d *tagdata.AllTags) error {
 											}
 											return margins.Layout(gtx,
 												func(gtx C) D {
-													btnTxt := "go"
-													if Gogo {
-														btnTxt = "stop"
-													}
+													btnTxt := "taglist"
 													btn := material.Button(th, myBtn, btnTxt)
 													return btn.Layout(gtx)
 												},
 											)
 										},
 									),
+									/*
+										layout.Rigid(
+											func(gtx C) D {
+												margins := layout.Inset{
+													Top:    unit.Dp(1),
+													Bottom: unit.Dp(1),
+													Left:   unit.Dp(66),
+													Right:  unit.Dp(6),
+												}
+												return margins.Layout(gtx,
+													func(gtx C) D {
+														return taglist.Layout(gtx, th)
+													},
+												)
+											},
+										),
+									*/
 								)
 
 							},
@@ -415,7 +442,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags) error {
 			return typ.Err
 		case app.ConfigEvent:
 			if !Gogo {
-				DrawChart(d)
+				DrawChart(d, cfg)
 			}
 		}
 

@@ -3,7 +3,6 @@ package ui
 import (
 	"gioui.org/app"
 	"gioui.org/layout"
-	"gioui.org/op"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 )
@@ -40,16 +39,6 @@ func (d *Dropdown) Layout(gtx layout.Context, th *material.Theme) layout.Dimensi
 
 	if d.dropdown.Clicked(gtx) {
 		d.isOpen = !d.isOpen
-		/*
-			d.ppw.Option(app.Size(unit.Dp(200), unit.Dp(300)))
-			d.ppw.Option(app.Decorated(false))
-			if d.isOpen {
-				go d.DrawPopup(d.ppw, th)
-			} else {
-				d.ppw.Invalidate()
-				d.ppw.Perform(system.ActionClose)
-			}
-		*/
 	}
 
 	var widgets []layout.Widget
@@ -89,6 +78,7 @@ func (d *Dropdown) getSelectedText() string {
 	return d.items[d.selected]
 }
 
+/*
 func (d *Dropdown) DrawPopup(w *app.Window, th *material.Theme) error {
 	for {
 		var ops op.Ops
@@ -114,3 +104,4 @@ func (d *Dropdown) DrawPopup(w *app.Window, th *material.Theme) error {
 		}
 	}
 }
+*/

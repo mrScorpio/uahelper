@@ -41,6 +41,10 @@ func main() {
 	ui.Gogo = true
 
 	cfg := configs.LoadConfig()
+	err := cfg.WrFile()
+	if err != nil {
+		log.Println(err)
+	}
 
 	arhDirName := "arh/" //папка для хранения файлов
 
@@ -284,7 +288,7 @@ func main() {
 
 				default:
 					if ui.Gogo {
-						err := ui.DrawChart(d)
+						err := ui.DrawChart(d, cfg)
 						if err != nil {
 							log.Println(err)
 						}
@@ -348,7 +352,7 @@ func main() {
 			w.Option(app.Title("логер"))
 		}
 		w.Option(app.Size(unit.Dp(600), unit.Dp(800)))
-		if err := ui.DrawUi(w, d); err != nil {
+		if err := ui.DrawUi(w, d, cfg); err != nil {
 			log.Println(err)
 		}
 		log.Println("stop from ui")
