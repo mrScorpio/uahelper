@@ -24,7 +24,6 @@ type Taglist struct {
 func NewTaglist(d *tagdata.AllTags, cfg *configs.Config) *Taglist {
 	w := new(app.Window)
 
-	w.Option(app.Size(unit.Dp(222), unit.Dp(444)))
 	//w.Option(app.Decorated(false))
 
 	pp := make([]widget.Bool, len(d.Tag))
@@ -47,36 +46,37 @@ func NewTaglist(d *tagdata.AllTags, cfg *configs.Config) *Taglist {
 	}
 }
 
-func (d *Taglist) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+func (tl *Taglist) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	// Стиль кнопки выпадающего списка
 
 	var widgets []layout.Widget
 
 	// Если список открыт, добавляем элементы
-	if d.isOpen {
-		for i, item := range d.names {
+	if tl.isOpen {
+		for i, item := range tl.names {
 			widgets = append(widgets, func(gtx layout.Context) layout.Dimensions {
-				btn := material.CheckBox(th, &d.pp[i], item)
+				btn := material.CheckBox(th, &tl.pp[i], item)
 				btn.Color = th.Palette.Fg
-				if d.pp[i].Pressed() {
-					d.SelTags = append(d.SelTags, i)
-					d.ShowTags[i] = !d.pp[i].Value
+				if tl.pp[i].Update(gtx) {
+					tl.SelTags = append(tl.SelTags, i)
+					tl.ShowTags[i] = tl.pp[i].Value
 				}
 				return btn.Layout(gtx)
 			})
 		}
 	}
 
-	return d.list.Layout(gtx, len(widgets), func(gtx C, index int) D {
+	return tl.list.Layout(gtx, len(widgets), func(gtx C, index int) D {
 		return widgets[index](gtx)
 	})
 }
 
-func (d *Taglist) DrawPopup(th *material.Theme, cfg *configs.Config) error {
+func (tl *Taglist) DrawPopup(th *material.Theme, cfg *configs.Config) error {
 	var ops op.Ops
-	d.w.Option(app.Size(unit.Dp(222), unit.Dp(444)))
+	tl.w.Option(app.Size(unit.Dp(333), unit.Dp(444)))
+	tl.w.Option(app.Title("Список тэгов"))
 	for {
-		evt := d.w.Event()
+		evt := tl.w.Event()
 
 		switch typ := evt.(type) {
 		case app.FrameEvent:
@@ -88,12 +88,12 @@ func (d *Taglist) DrawPopup(th *material.Theme, cfg *configs.Config) error {
 			}.Layout(gtx,
 				layout.Rigid(
 					func(gtx C) D {
-						return d.Layout(gtx, th)
+						return tl.Layout(gtx, th)
 					},
 				))
 			typ.Frame(gtx.Ops)
 		case app.DestroyEvent:
-			d.isOpen = false
+			tl.isOpen = false
 			cfg.WrFile()
 			return typ.Err
 

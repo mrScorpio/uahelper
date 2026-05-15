@@ -336,8 +336,13 @@ func main() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			initDataLoad := true
 			for name := range ui.NewData {
 				wTime, err = repository.ReadStored(d, name)
+				if initDataLoad {
+					close(ui.DataLoaded)
+					initDataLoad = false
+				}
 			}
 		}()
 	}
@@ -352,7 +357,7 @@ func main() {
 			w.Option(app.Title("логер"))
 		}
 		w.Option(app.Size(unit.Dp(600), unit.Dp(800)))
-		if err := ui.DrawUi(w, d, cfg); err != nil {
+		if err := ui.DrawUi(w, d, cfg, MdRd); err != nil {
 			log.Println(err)
 		}
 		log.Println("stop from ui")

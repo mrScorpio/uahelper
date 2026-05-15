@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	"log"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -27,30 +28,34 @@ type C = layout.Context
 type D = layout.Dimensions
 
 var (
-	Diap    int64
-	LastInd int
-	Cmd     chan int
-	NewData chan string
-	Gogo    bool
-	ScAuto  bool
-	ScMax   float64
-	ScMin   float64
-	BufImg  image.Image
-	ChartW  int
-	ChartH  int
+	Diap       int64
+	LastInd    int
+	Cmd        chan int
+	NewData    chan string
+	DataLoaded chan struct{}
+	Gogo       bool
+	ScAuto     bool
+	ScMax      float64
+	ScMin      float64
+	BufImg     image.Image
+	ChartW     int
+	ChartH     int
+	TagOrder   map[int]int
+	TagLegend  []string
 )
 
-func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config) error {
+func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) error {
 	var ops op.Ops
 
 	myBtn := new(widget.Clickable)
+	brBtn := new(widget.Clickable)
 
 	swUpdPlot := new(widget.Bool)
 	swUpdPlot.Value = true
 
 	diapSld := new(widget.Float)
-	Diap = 666
-	diapSld.Value = float32(Diap) / 10000
+	Diap = 6666
+	diapSld.Value = float32(Diap) / 100000
 	var diap float32 = 0.1
 
 	crSld := new(widget.Float)
@@ -86,6 +91,16 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config) error {
 		log.Println(err)
 	}
 
+	if mdrd {
+		DataLoaded = make(chan struct{})
+		NewData <- arhFiles[0]
+		<-DataLoaded
+		Diap = int64(len(d.Tm))
+		DrawChart(d, cfg)
+		swUpdPlot.Value = false
+		//time.Sleep(time.Duration(6666) * time.Millisecond)
+	}
+
 	filesDD := NewDropdown(arhFiles)
 
 	taglist := NewTaglist(d, cfg)
@@ -114,6 +129,27 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config) error {
 				} else {
 					taglist.w.Invalidate()
 					taglist.w.Perform(system.ActionClose)
+				}
+			}
+			if brBtn.Clicked(gtx) {
+				commaTags := ""
+				for k, v := range cfg.ShowTags {
+					if commaTags != "" {
+						commaTags += ","
+					}
+					if v {
+						commaTags += d.Tag[k].Name
+					}
+				}
+
+				brPath := "c:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+				//brPath := "/usr/lib/firefox-esr/firefox-esr"
+				httPath := "http://localhost" + cfg.TrPort + "/?show=" + commaTags + "&step=10"
+				cmd := exec.Command(brPath, httPath)
+				err := cmd.Start()
+				if err != nil {
+					log.Println(httPath)
+					log.Println(err)
 				}
 			}
 
@@ -181,7 +217,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config) error {
 			}
 
 			if diapSld.Dragging() {
-				Diap = int64(diapSld.Value * 10000)
+				Diap = int64(diapSld.Value * 100000)
 				ScAuto = true
 				if !Gogo {
 					DrawChart(d, cfg)
@@ -375,6 +411,9 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config) error {
 											return margins.Layout(gtx,
 												func(gtx C) D {
 													txt := material.H6(th, "Архив:")
+													if !mdrd {
+														txt.Text = ""
+													}
 													return txt.Layout(gtx)
 												},
 											)
@@ -385,6 +424,10 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config) error {
 											brdr := widget.Border{
 												Color: color.NRGBA{R: 6, G: 6, B: 222, A: 255},
 												Width: unit.Dp(2),
+											}
+											if !mdrd {
+												txt := material.H6(th, "")
+												return txt.Layout(gtx)
 											}
 											return brdr.Layout(gtx,
 												func(gtx C) D {
@@ -404,30 +447,29 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config) error {
 											}
 											return margins.Layout(gtx,
 												func(gtx C) D {
-													btnTxt := "taglist"
-													btn := material.Button(th, myBtn, btnTxt)
+													btn := material.Button(th, myBtn, "список тэгов")
 													return btn.Layout(gtx)
 												},
 											)
 										},
 									),
-									/*
-										layout.Rigid(
-											func(gtx C) D {
-												margins := layout.Inset{
-													Top:    unit.Dp(1),
-													Bottom: unit.Dp(1),
-													Left:   unit.Dp(66),
-													Right:  unit.Dp(6),
-												}
-												return margins.Layout(gtx,
-													func(gtx C) D {
-														return taglist.Layout(gtx, th)
-													},
-												)
-											},
-										),
-									*/
+
+									layout.Rigid(
+										func(gtx C) D {
+											margins := layout.Inset{
+												Top:    unit.Dp(1),
+												Bottom: unit.Dp(1),
+												Left:   unit.Dp(6),
+												Right:  unit.Dp(6),
+											}
+											return margins.Layout(gtx,
+												func(gtx C) D {
+													btn := material.Button(th, brBtn, "браузер")
+													return btn.Layout(gtx)
+												},
+											)
+										},
+									),
 								)
 
 							},

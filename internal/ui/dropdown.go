@@ -31,14 +31,14 @@ func NewDropdown(items []string) *Dropdown {
 	}
 }
 
-func (d *Dropdown) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+func (dd *Dropdown) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	// Стиль кнопки выпадающего списка
-	button := material.Button(th, &d.dropdown, d.getSelectedText())
+	button := material.Button(th, &dd.dropdown, dd.getSelectedText())
 	button.Background = th.Palette.Bg
 	button.Color = th.Palette.Fg
 
-	if d.dropdown.Clicked(gtx) {
-		d.isOpen = !d.isOpen
+	if dd.dropdown.Clicked(gtx) {
+		dd.isOpen = !dd.isOpen
 	}
 
 	var widgets []layout.Widget
@@ -49,33 +49,33 @@ func (d *Dropdown) Layout(gtx layout.Context, th *material.Theme) layout.Dimensi
 	})
 
 	// Если список открыт, добавляем элементы
-	if d.isOpen {
-		for i, item := range d.items {
+	if dd.isOpen {
+		for i, item := range dd.items {
 			itemIndex := i
 			widgets = append(widgets, func(gtx layout.Context) layout.Dimensions {
-				btn := material.Button(th, &d.itemClicks[i], item)
+				btn := material.Button(th, &dd.itemClicks[i], item)
 				btn.Background = th.Palette.Bg
 				btn.Color = th.Palette.Fg
-				if d.itemClicks[i].Clicked(gtx) {
-					d.selected = itemIndex
-					d.isOpen = false
-					NewData <- d.items[d.selected]
+				if dd.itemClicks[i].Clicked(gtx) {
+					dd.selected = itemIndex
+					dd.isOpen = false
+					NewData <- dd.items[dd.selected]
 				}
 				return btn.Layout(gtx)
 			})
 		}
 	}
 
-	return d.list.Layout(gtx, len(widgets), func(gtx C, index int) D {
+	return dd.list.Layout(gtx, len(widgets), func(gtx C, index int) D {
 		return widgets[index](gtx)
 	})
 }
 
-func (d *Dropdown) getSelectedText() string {
-	if d.selected == -1 {
+func (dd *Dropdown) getSelectedText() string {
+	if dd.selected == -1 {
 		return "Выберите файл"
 	}
-	return d.items[d.selected]
+	return dd.items[dd.selected]
 }
 
 /*

@@ -12,13 +12,28 @@ import (
 
 func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
 	values := make([][]float64, len(cfg.ShowTags))
+	//legend := make([]string, 0)
 	i := 0
-	order := make(map[int]int)
+	//order := make(map[int]int)
+
+	for key, v := range cfg.ShowTags {
+		if !v {
+			delete(cfg.ShowTags, key)
+		}
+	}
+
+	if len(TagOrder) != len(cfg.ShowTags) {
+		TagOrder = make(map[int]int)
+		TagLegend = make([]string, 0)
+	}
 	minInd := len(d.Tm) - 1
 	for key, v := range cfg.ShowTags {
 		if v {
 			values[i] = make([]float64, Diap)
-			order[key] = i
+			if len(TagOrder) != len(cfg.ShowTags) {
+				TagOrder[key] = i
+				TagLegend = append(TagLegend, d.Tag[key].Name)
+			}
 			if len(d.Tag[key].Y) < minInd+1 {
 				minInd = len(d.Tag[key].Y) - 1
 			}
@@ -44,7 +59,7 @@ func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
 			tm[i] = d.Tm[j]
 			for key, v := range cfg.ShowTags {
 				if v {
-					values[order[key]][i] = d.Tag[key].Y[j].Value.(float64)
+					values[TagOrder[key]][i] = d.Tag[key].Y[j].Value.(float64)
 				}
 			}
 			if j > 0 {
@@ -56,16 +71,19 @@ func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
 	p, err := vcharts.LineRender(
 		values,
 		vcharts.XAxisDataOptionFunc(tm),
-		vcharts.YAxisOptionFunc(vcharts.YAxisOption{Min: &ScMin, Max: &ScMax}),
+		vcharts.LegendLabelsOptionFunc(TagLegend),
+		vcharts.YAxisOptionFunc(vcharts.YAxisOption{Show: vcharts.TrueFlag()}),
 		func(opt *vcharts.ChartOption) {
 			opt.SymbolShow = vcharts.FalseFlag()
 			opt.LineStrokeWidth = 1
-			//			opt.Title.Text = d.Tag[s].Unit
+			//opt.Title.Text = d.Tag[s].Unit
 			opt.XAxis.FontSize = 8
 			opt.YAxisOptions[0].FontSize = 8
 
 			opt.Height = ChartH
 			opt.Width = ChartW
+			opt.YAxisOptions[0].Max = &ScMax
+			opt.YAxisOptions[0].Min = &ScMin
 			opt.ValueFormatter = func(f float64) string {
 				return fmt.Sprintf("%.3f", f)
 			}
