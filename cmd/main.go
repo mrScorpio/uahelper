@@ -26,6 +26,7 @@ import (
 	"github.com/mrscorpio/uahelper/internal/ui"
 	"github.com/mrscorpio/uahelper/pkg/opcuacl"
 	"github.com/mrscorpio/uahelper/pkg/tgbot"
+	"github.com/mrscorpio/uahelper/pkg/vkbot"
 )
 
 const MdRd bool = false // для выбора перед компиляцией - логер 0 или вьюер 1
@@ -65,6 +66,10 @@ func main() {
 	if err != nil {
 		log.Println(err)
 	}
+	vkb, err := vkbot.NewBot(ctx, cfg, MdRd)
+	if err != nil {
+		log.Println(err)
+	}
 
 	cl, err := opcuacl.NewCl(ctx, cfg, MdRd) // описи юа клиент, в режиме просмотра нил
 	if err != nil {
@@ -86,7 +91,18 @@ func main() {
 		// тут тэги с первопричинами аварии
 		tagname := []string{
 			"PROT.FIRSTCOM.FIRST",
+			"PROT.STARTDENY.FIRST",
+			"PROT.F_UNLOAD.FIRST",
+			"PROT.FORCE.FIRST",
 			"PROT.TRIP.FIRST",
+			"PROT.CCDENY.FIRST",
+			"PROT.OILF.FIRST",
+			"PROT.PURGEF.FIRST",
+			"PROT.TRIPRES.FIRST",
+			"PROT.TRIPMECH.FIRST",
+			"PROT.TRIPTURB1.FIRST",
+			"PROT.TRIPTURB2.FIRST",
+			"PROT.TRIPETC.FIRST",
 		}
 		tripTags := make([]*ua.ReadValueID, 0)
 		for _, v := range tagname {
@@ -156,7 +172,8 @@ func main() {
 								item.Resp, err = cl[clNum].Read(ctx, item.Req)
 							}
 							if err != nil {
-								log.Fatal("opcua request error: ", err)
+								log.Println("opcua request error: ", err)
+								return
 							}
 
 							item.Cct = 0
@@ -191,12 +208,13 @@ func main() {
 		// рутина отвечает складывание данных в файлы и отрисовку онлайн-тренда
 		go func() {
 			if b != nil {
-				b.SendTxt("логер запущен")
+				go b.SendToBoss("логер запущен")
 			}
 			defer wg.Done()
 			ticker := time.NewTicker(time.Duration(cfg.StoreCycle) * time.Second) // тикер записи файлов
-			chkSpin := time.NewTicker(6 * time.Second)                            // тикер для проверки оборотов
-			current_hour := time.Now().Hour()
+			chkSpin := time.NewTicker(3 * time.Second)                            // тикер для проверки оборотов
+
+			currentHour := time.Now().Hour()
 
 			for {
 				select {
@@ -213,15 +231,31 @@ func main() {
 					if !spin && curRpm > 666.666 {
 						spin = true
 						d.Clean()
+						d.TripTM = time.Now().Add(time.Duration(66666) * time.Hour) // типа трип когда-то случится
+						d.TripTag = "X3"
+						mes := "раскрутка, смотреть на ingcstend.ru"
 						if b != nil {
-							b.SendTxt("раскрутка, смотреть на ingcstend.ru")
+							b.SendTxt(mes)
+						}
+						if vkb != nil {
+							err := vkb.B.NewTextMessage(cfg.VkChat, mes).Send()
+							if err != nil {
+								log.Println(err)
+							}
 						}
 					}
 					// момент розжига
 					if !fire && curRpm > 5222.222 {
 						fire = true
+						mes := "есть розжиг"
 						if b != nil {
-							b.SendTxt("есть розжиг")
+							b.SendTxt(mes)
+						}
+						if vkb != nil {
+							err := vkb.B.NewTextMessage(cfg.VkChat, mes).Send()
+							if err != nil {
+								log.Println(err)
+							}
 						}
 					}
 					// момент останова с записью файла и отправкой через бота
@@ -242,6 +276,17 @@ func main() {
 								log.Println(err)
 							}
 						}
+						if vkb != nil {
+							toSend, err := os.OpenFile(filename, os.O_RDONLY, 0755)
+							if err != nil {
+								log.Println(err)
+							} else {
+								err := vkb.B.NewFileMessage(cfg.VkChat, toSend).Send()
+								if err != nil {
+									log.Println(err)
+								}
+							}
+						}
 					}
 					if len(cl) > 1 {
 						if cl[1] != nil {
@@ -252,8 +297,19 @@ func main() {
 								}
 								first := resp.Results[0].Value.Value().(uint32) // фиксируем вид останова
 
-								if first != 0 && prevFirst == 0 && b != nil {
-									b.SendTxt(tripreport.GetFirst(resp)) // вычисляем первопричину и отправляем в телегу
+								if first != 0 && prevFirst == 0 {
+									mes, triptag := tripreport.GetFirst(resp) // вычисляем первопричину
+									if b != nil {
+										b.SendTxt(mes) // отправляем в телегу
+									}
+									if vkb != nil {
+										err := vkb.B.NewTextMessage(cfg.VkChat, mes).Send()
+										if err != nil {
+											log.Println(err)
+										}
+									}
+									d.TripTM = time.Now()
+									d.TripTag = triptag
 								}
 								prevFirst = first
 							}
@@ -263,22 +319,42 @@ func main() {
 				case <-ticker.C:
 					nowT := time.Now()
 
-					if nowT.Hour() != current_hour && !spin {
-						current_hour = nowT.Hour()
+					if nowT.Hour() != currentHour && !spin {
+						currentHour = nowT.Hour()
 						// если пошол новый час, то пишем архив и чистим данные
-						_, _, err := repository.StoreData(d, arhDirName, true)
+						buf, filename, err := repository.StoreData(d, arhDirName, true)
 						if err != nil {
 							log.Println(err)
 						} else {
 							d.Clean()
 						}
+						//check arch send
+						if b != nil {
+							err = b.SendArh(buf, filename)
+							if err != nil {
+								log.Println(err)
+							}
+						}
+						if vkb != nil {
+							toSend, err := os.OpenFile(arhDirName+filename, os.O_RDONLY, 0755)
+							if err != nil {
+								log.Println(err)
+							} else {
+								err := vkb.B.NewFileMessage(cfg.VkChat, toSend).Send()
+								if err != nil {
+									log.Println(err)
+								}
+							}
+						}
+
 					} else {
 						// пишем данные в джисон-файл по тикеру
 						data, err := json.Marshal(d)
 						if err != nil {
 							log.Println(err)
 						} else {
-							err = os.WriteFile(arhDirName+nowT.Format("20060102_15")+".json", data, 0755)
+							filename := arhDirName + nowT.Format("20060102_15") + ".json"
+							err = os.WriteFile(filename, data, 0755)
 							if err != nil {
 								log.Println(err)
 							}
@@ -311,6 +387,9 @@ func main() {
 	// рутина для отслеживания сигнала остановки сервера
 	go func() {
 		defer wg.Done()
+		if b != nil {
+			defer b.SendToBoss("логер остановлен")
+		}
 		<-stopSrvSig
 		err := srv.Shutdown(ctx)
 		if err != nil {
@@ -363,7 +442,9 @@ func main() {
 		log.Println("stop from ui")
 		close(stopSrvSig) // отправляет сигнал останова хттп-серверу
 		close(ui.NewData)
-
+		if b != nil {
+			time.Sleep(time.Duration(666) * time.Millisecond) // чтобы бот отправил сообщение об останове
+		}
 		for i := range cl {
 			if cl[i] != nil {
 				cl[i].Close(ctx) // отключаем описи юа клиент
@@ -386,9 +467,7 @@ func main() {
 			if err != nil {
 				log.Println(err)
 			}
-			fmt.Printf("для останова введи ку\nчто именно пялим > ")
-		} else {
-			fmt.Print("для останова введи ку > ")
+			fmt.Printf("что именно пялим > ")
 		}
 		fmt.Scan(&filename)
 		if strings.TrimSpace(filename) == "q" { // или команду останова
@@ -403,9 +482,7 @@ func main() {
 
 		fmt.Println("загружено, смотри в браузере")
 	}
-	if b != nil {
-		b.SendTxt("логер остановлен")
-	}
+
 	close(stopSrvSig) // отправляет сигнал останова хттп-серверу
 	close(ui.NewData)
 

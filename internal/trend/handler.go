@@ -118,7 +118,7 @@ func View(d *tagdata.AllTags, legSel map[string]bool, wTime *time.Time) http.Han
 				Height:    "888px",
 				PageTitle: "чёткие трендики",
 			}),
-			charts.WithTitleOpts(opts.Title{Title: wTime.Format(time.Stamp), Left: "center"}),
+			charts.WithTitleOpts(opts.Title{Title: "Команда останова:", Subtitle: d.TripTM.Format(time.Stamp), Left: "center"}),
 			charts.WithGridOpts(opts.Grid{Width: "999px"}),
 			charts.WithLegendOpts(opts.Legend{Type: "scroll", Orient: "vertical", X: "right", Selected: legSel}),
 			charts.WithDataZoomOpts(

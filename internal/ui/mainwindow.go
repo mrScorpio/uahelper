@@ -142,9 +142,9 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 					}
 				}
 
-				brPath := "c:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
-				//brPath := "/usr/lib/firefox-esr/firefox-esr"
-				httPath := "http://localhost" + cfg.TrPort + "/?show=" + commaTags + "&step=10"
+				//brPath := "c:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+				brPath := "/usr/lib/firefox-esr/firefox-esr"
+				httPath := "http://localhost" + cfg.TrPort + "/?show=" + commaTags + "&zoom=" + d.TripTag + "&step=10"
 				cmd := exec.Command(brPath, httPath)
 				err := cmd.Start()
 				if err != nil {

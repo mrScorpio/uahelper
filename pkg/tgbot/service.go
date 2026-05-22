@@ -47,10 +47,18 @@ func (mybot *TgBot) SendArh(buf *bytes.Buffer, filename string) error {
 	prms := &bot.SendDocumentParams{
 		ChatID:   mybot.cfg.BotChat,
 		Document: &models.InputFileUpload{Filename: filename, Data: bytes.NewReader(buf.Bytes())},
-		Caption:  "прога для просмотра: https://disk.yandex.ru/d/TXKDwhai1GHSbw",
+		Caption:  "прога для просмотра: " + mybot.cfg.ViewerUrl,
 	}
 	_, err := mybot.B.SendDocument(mybot.ctx, prms)
 
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (mybot *TgBot) SendToBoss(txt string) error {
+	_, err := mybot.B.SendMessage(mybot.ctx, &bot.SendMessageParams{ChatID: mybot.cfg.BossId, Text: txt})
 	if err != nil {
 		return err
 	}

@@ -12,11 +12,17 @@ import (
 type Config struct {
 	Endpoint   string
 	Bot        bool
+	VkBot      bool
 	RdMd       bool
 	StoreCycle int
 	TrPort     string
 	BotToken   string
 	BotChat    string
+	BossId     string
+	VkToken    string
+	VkChat     string
+	VkBossId   string
+	ViewerUrl  string
 	UaUser     string
 	UaPass     string
 	ShowTags   map[int]bool
@@ -48,11 +54,15 @@ func LoadConfig() *Config {
 			ShowTags:   showTags,
 		}
 	}
-	var bot, rdmd bool
+	var bot, vkbot, rdmd bool
 	stcc := 66
 	bot, err = strconv.ParseBool(os.Getenv("BOT"))
 	if err != nil {
 		bot = false
+	}
+	vkbot, err = strconv.ParseBool(os.Getenv("VKBOT"))
+	if err != nil {
+		vkbot = false
 	}
 	rdmd, err = strconv.ParseBool(os.Getenv("RD"))
 	if err != nil {
@@ -68,17 +78,28 @@ func LoadConfig() *Config {
 	}
 	botToken := os.Getenv("BOTOKEN")
 	botChat := os.Getenv("BOTCHAT")
+	vkToken := os.Getenv("VKTOKEN")
+	vkChat := os.Getenv("VKCHAT")
+	bossId := os.Getenv("BOSSID")
+	vkBossId := os.Getenv("VKBOSSID")
+	viewerUrl := os.Getenv("VIEWERURL")
 	uaUser := os.Getenv("UAUSER")
 	uaPass := os.Getenv("UAPASS")
 
 	return &Config{
 		Endpoint:   os.Getenv("EP"),
 		Bot:        bot,
+		VkBot:      vkbot,
 		RdMd:       rdmd,
 		StoreCycle: stcc,
 		TrPort:     trPort,
 		BotToken:   botToken,
 		BotChat:    botChat,
+		BossId:     bossId,
+		VkToken:    vkToken,
+		VkChat:     vkChat,
+		VkBossId:   vkBossId,
+		ViewerUrl:  viewerUrl,
 		UaUser:     uaUser,
 		UaPass:     uaPass,
 		ShowTags:   showTags,
@@ -86,7 +107,7 @@ func LoadConfig() *Config {
 }
 
 func (c *Config) WrFile() error {
-	data, err := json.Marshal(&c)
+	data, err := json.MarshalIndent(&c, "", "  ")
 	if err != nil {
 		return err
 	}

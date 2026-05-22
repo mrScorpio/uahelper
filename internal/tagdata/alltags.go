@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-echarts/go-echarts/v2/opts"
 	"github.com/gopcua/opcua"
@@ -33,6 +34,8 @@ type AllTags struct {
 	Ccs      map[int]*CycleData
 	MinCycle int
 	Tm       []string
+	TripTM   time.Time
+	TripTag  string
 }
 
 func (at *AllTags) NewTag(name string, dscr string, cycle int) *TagData {
