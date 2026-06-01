@@ -16,12 +16,6 @@ func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
 	i := 0
 	//order := make(map[int]int)
 
-	for key, v := range cfg.ShowTags {
-		if !v {
-			delete(cfg.ShowTags, key)
-		}
-	}
-
 	if len(TagOrder) != len(cfg.ShowTags) {
 		TagOrder = make(map[int]int)
 		TagLegend = make([]string, 0)

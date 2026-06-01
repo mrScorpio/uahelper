@@ -42,6 +42,7 @@ var (
 	ChartH     int
 	TagOrder   map[int]int
 	TagLegend  []string
+	TL         *Taglist
 )
 
 func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) error {
@@ -93,7 +94,11 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 
 	if mdrd {
 		DataLoaded = make(chan struct{})
-		NewData <- arhFiles[0]
+		if len(arhFiles) > 0 {
+			NewData <- arhFiles[0]
+		} else {
+			NewData <- "not found"
+		}
 		<-DataLoaded
 		Diap = int64(len(d.Tm))
 		DrawChart(d, cfg)
@@ -103,7 +108,8 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 
 	filesDD := NewDropdown(arhFiles)
 
-	taglist := NewTaglist(d, cfg)
+	TL = NewTaglist(d, cfg)
+	taglist := TL
 
 	th := material.NewTheme()
 	var lastLen float32 = 0.0
@@ -132,23 +138,12 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 				}
 			}
 			if brBtn.Clicked(gtx) {
-				commaTags := ""
-				for k, v := range cfg.ShowTags {
-					if commaTags != "" {
-						commaTags += ","
-					}
-					if v {
-						commaTags += d.Tag[k].Name
-					}
+				if cfg.RdMd {
+					cfg.BrPath = "/usr/lib/firefox-esr/firefox-esr"
 				}
-
-				//brPath := "c:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
-				brPath := "/usr/lib/firefox-esr/firefox-esr"
-				httPath := "http://localhost" + cfg.TrPort + "/?show=" + commaTags + "&zoom=" + d.TripTag + "&step=10"
-				cmd := exec.Command(brPath, httPath)
+				cmd := exec.Command(cfg.BrPath, HttPath(d, cfg, "localhost"))
 				err := cmd.Start()
 				if err != nil {
-					log.Println(httPath)
 					log.Println(err)
 				}
 			}

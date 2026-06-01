@@ -51,17 +51,6 @@ func main() {
 
 	httpAddr := "http://localhost" + cfg.TrPort + "/?zoom=st50_bzk&show=zt504&step=1"
 
-	conn, err := net.Dial("tcp", "ya.ru:80")
-	if err != nil {
-		log.Println(err)
-	} else {
-		myip := strings.Split(conn.LocalAddr().String(), ":")
-		httpAddr = "http://" + myip[0] + cfg.TrPort + "/?zoom=st50_bzk&show=zt504&step=1"
-	}
-	conn.Close()
-
-	fmt.Println("тренды пялить на", httpAddr)
-
 	b, err := tgbot.NewBot(ctx, cfg, MdRd) // бот, в режиме просмотра нил
 	if err != nil {
 		log.Println(err)
@@ -103,6 +92,7 @@ func main() {
 			"PROT.TRIPTURB1.FIRST",
 			"PROT.TRIPTURB2.FIRST",
 			"PROT.TRIPETC.FIRST",
+			"PROT.STARTDENYALG.FIRST",
 		}
 		tripTags := make([]*ua.ReadValueID, 0)
 		for _, v := range tagname {
@@ -173,7 +163,7 @@ func main() {
 							}
 							if err != nil {
 								log.Println("opcua request error: ", err)
-								return
+								continue
 							}
 
 							item.Cct = 0
@@ -233,7 +223,7 @@ func main() {
 						d.Clean()
 						d.TripTM = time.Now().Add(time.Duration(66666) * time.Hour) // типа трип когда-то случится
 						d.TripTag = "X3"
-						mes := "раскрутка, смотреть на ingcstend.ru"
+						mes := "раскрутка, смотреть на ingcgt.ru"
 						if b != nil {
 							b.SendTxt(mes)
 						}
@@ -294,6 +284,7 @@ func main() {
 								resp, err := cl[1].Read(ctx, tripReq) //читаем тэги первопричин
 								if err != nil {
 									fmt.Println(err)
+									continue
 								}
 								first := resp.Results[0].Value.Value().(uint32) // фиксируем вид останова
 
@@ -322,30 +313,32 @@ func main() {
 					if nowT.Hour() != currentHour && !spin {
 						currentHour = nowT.Hour()
 						// если пошол новый час, то пишем архив и чистим данные
-						buf, filename, err := repository.StoreData(d, arhDirName, true)
+						_, _, err := repository.StoreData(d, arhDirName, true)
 						if err != nil {
 							log.Println(err)
 						} else {
 							d.Clean()
 						}
 						//check arch send
-						if b != nil {
-							err = b.SendArh(buf, filename)
-							if err != nil {
-								log.Println(err)
-							}
-						}
-						if vkb != nil {
-							toSend, err := os.OpenFile(arhDirName+filename, os.O_RDONLY, 0755)
-							if err != nil {
-								log.Println(err)
-							} else {
-								err := vkb.B.NewFileMessage(cfg.VkChat, toSend).Send()
+						/*
+							if b != nil {
+								err = b.SendArh(buf, filename)
 								if err != nil {
 									log.Println(err)
 								}
 							}
-						}
+							if vkb != nil {
+								toSend, err := os.OpenFile(arhDirName+filename, os.O_RDONLY, 0755)
+								if err != nil {
+									log.Println(err)
+								} else {
+									err := vkb.B.NewFileMessage(cfg.VkChat, toSend).Send()
+									if err != nil {
+										log.Println(err)
+									}
+								}
+							}
+						*/
 
 					} else {
 						// пишем данные в джисон-файл по тикеру
@@ -387,8 +380,12 @@ func main() {
 	// рутина для отслеживания сигнала остановки сервера
 	go func() {
 		defer wg.Done()
+		mes := "логер остановлен"
+		if vkb != nil {
+			defer vkb.B.NewTextMessage(cfg.VkBossId, mes).Send()
+		}
 		if b != nil {
-			defer b.SendToBoss("логер остановлен")
+			defer b.SendToBoss(mes)
 		}
 		<-stopSrvSig
 		err := srv.Shutdown(ctx)
@@ -421,6 +418,8 @@ func main() {
 				if initDataLoad {
 					close(ui.DataLoaded)
 					initDataLoad = false
+				} else {
+					ui.TL.UpdTaglist(d, cfg)
 				}
 			}
 		}()
@@ -458,11 +457,23 @@ func main() {
 
 	go app.Main()
 
+	conn, err := net.Dial("tcp", "ya.ru:80")
+	myip := strings.Split(conn.LocalAddr().String(), ":")
+	if err != nil {
+		log.Println(err)
+	} else {
+		//httpAddr = "http://" + myip[0] + cfg.TrPort + "/?zoom=st50_bzk&show=zt504&step=1"
+		httpAddr = ui.HttPath(d, cfg, myip[0])
+	}
+	conn.Close()
+
+	fmt.Println("тренды пялить на", httpAddr)
+
 	filename := ""
 	// тут ждем файл с данными для просмотра
 	for {
 		if MdRd {
-			cmd := exec.Command("c:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe", httpAddr)
+			cmd := exec.Command(cfg.BrPath, httpAddr)
 			err := cmd.Start()
 			if err != nil {
 				log.Println(err)

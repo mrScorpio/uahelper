@@ -10,48 +10,54 @@ import (
 )
 
 type Config struct {
-	Endpoint   string
-	Bot        bool
-	VkBot      bool
-	RdMd       bool
-	StoreCycle int
-	TrPort     string
-	BotToken   string
-	BotChat    string
-	BossId     string
-	VkToken    string
-	VkChat     string
-	VkBossId   string
-	ViewerUrl  string
-	UaUser     string
-	UaPass     string
-	ShowTags   map[int]bool
+	Endpoint     string
+	Bot          bool
+	VkBot        bool
+	RdMd         bool
+	StoreCycle   int
+	TrPort       string
+	BotToken     string
+	BotChat      string
+	BossId       string
+	VkToken      string
+	VkChat       string
+	VkBossId     string
+	ViewerUrl    string
+	UaUser       string
+	UaPass       string
+	BrPath       string
+	ShowTags     map[int]bool
+	ShowTagNames []string
 }
 
 func LoadConfig() *Config {
 	data, err := os.ReadFile("cfg.json")
+	showTags := make(map[int]bool)
 	if err == nil {
 		cfg := new(Config)
 		err := json.Unmarshal(data, &cfg)
+		cfg.ShowTags = showTags
 		if err == nil {
 			return cfg
 		}
 	}
-	showTags := make(map[int]bool)
+	showTagNames := make([]string, 0)
 	err = godotenv.Load()
 	if err != nil {
 		log.Println("error loading .env file, use default config")
 		return &Config{
-			Endpoint:   "opc.tcp://localhost:62544",
-			Bot:        false,
-			RdMd:       false,
-			StoreCycle: 666,
-			TrPort:     ":22222",
-			BotToken:   "",
-			BotChat:    "",
-			UaUser:     "",
-			UaPass:     "",
-			ShowTags:   showTags,
+			Endpoint:     "opc.tcp://localhost:62544",
+			Bot:          false,
+			RdMd:         false,
+			StoreCycle:   666,
+			TrPort:       ":22222",
+			BotToken:     "",
+			BotChat:      "",
+			UaUser:       "",
+			UaPass:       "",
+			BrPath:       "c:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+			ShowTags:     showTags,
+			ShowTagNames: showTagNames,
 		}
 	}
 	var bot, vkbot, rdmd bool
@@ -85,24 +91,26 @@ func LoadConfig() *Config {
 	viewerUrl := os.Getenv("VIEWERURL")
 	uaUser := os.Getenv("UAUSER")
 	uaPass := os.Getenv("UAPASS")
-
+	brPath := os.Getenv("BRPATH")
 	return &Config{
-		Endpoint:   os.Getenv("EP"),
-		Bot:        bot,
-		VkBot:      vkbot,
-		RdMd:       rdmd,
-		StoreCycle: stcc,
-		TrPort:     trPort,
-		BotToken:   botToken,
-		BotChat:    botChat,
-		BossId:     bossId,
-		VkToken:    vkToken,
-		VkChat:     vkChat,
-		VkBossId:   vkBossId,
-		ViewerUrl:  viewerUrl,
-		UaUser:     uaUser,
-		UaPass:     uaPass,
-		ShowTags:   showTags,
+		Endpoint:     os.Getenv("EP"),
+		Bot:          bot,
+		VkBot:        vkbot,
+		RdMd:         rdmd,
+		StoreCycle:   stcc,
+		TrPort:       trPort,
+		BotToken:     botToken,
+		BotChat:      botChat,
+		BossId:       bossId,
+		VkToken:      vkToken,
+		VkChat:       vkChat,
+		VkBossId:     vkBossId,
+		ViewerUrl:    viewerUrl,
+		UaUser:       uaUser,
+		UaPass:       uaPass,
+		BrPath:       brPath,
+		ShowTags:     showTags,
+		ShowTagNames: showTagNames,
 	}
 }
 

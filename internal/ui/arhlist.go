@@ -4,6 +4,9 @@ import (
 	"log"
 	"os"
 	"strings"
+
+	"github.com/mrscorpio/uahelper/configs"
+	"github.com/mrscorpio/uahelper/internal/tagdata"
 )
 
 func SearchDataFiles() ([]string, error) {
@@ -31,4 +34,17 @@ func SearchDataFiles() ([]string, error) {
 	}
 
 	return fileList, nil
+}
+
+func HttPath(d *tagdata.AllTags, cfg *configs.Config, ipaddr string) string {
+	commaTags := ""
+	for k, v := range cfg.ShowTags {
+		if commaTags != "" {
+			commaTags += ","
+		}
+		if v {
+			commaTags += d.Tag[k].Name
+		}
+	}
+	return "http://" + ipaddr + cfg.TrPort + "/?show=" + commaTags + "&zoom=" + d.TripTag + "&step=10"
 }

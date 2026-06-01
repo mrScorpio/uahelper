@@ -12,7 +12,50 @@ func GetFirst(resp *ua.ReadResponse) (string, string) {
 	if len(resp.Results) > 0 {
 		switch resp.Results[0].Value.Value().(uint32) {
 		case 1:
-			res = "Отмена пуска\n"
+			res = "Отмена пуска"
+			if len(resp.Results) > 1 {
+				switch resp.Results[1].Value.Value().(uint32) {
+				case 1:
+					res += " из-за неисправности топливной арматуры"
+				case 2:
+					res += " по алгоритму\n"
+					if len(resp.Results) > 13 {
+						triptype := resp.Results[13].Value.Value().(uint32)
+						switch triptype {
+						case uint32(math.Pow(2, 0)):
+							res += "нет питания на стартере"
+						case uint32(math.Pow(2, 1)):
+							res += "стартер не крутит"
+						case uint32(math.Pow(2, 2)):
+							res += "неисправность отсечных клапанов"
+						case uint32(math.Pow(2, 3)):
+							res += "авария блока обеспечения"
+						case uint32(math.Pow(2, 4)):
+							res += "нет готовности блока обеспечения"
+						case uint32(math.Pow(2, 5)):
+							res += "не запустился блок обеспечения"
+						case uint32(math.Pow(2, 6)):
+							res += "неисправен клапан топливной линии XY401"
+						case uint32(math.Pow(2, 7)):
+							res += "неисправен клапан топливной линии XY402"
+						case uint32(math.Pow(2, 8)):
+							res += "неисправен клапан топливной линии XY403"
+						case uint32(math.Pow(2, 9)):
+							res += "нет пламени ни в одной камере"
+						case uint32(math.Pow(2, 10)):
+							res += "ТК не вышел на ХХ"
+						}
+					}
+				case 4:
+					res += " - не остыл выхлоп"
+				case 8:
+					res += " - не остыли камеры сгорания"
+				case 16:
+					res += " от блока защиты турбины"
+				case 32:
+					res += " оператором"
+				}
+			}
 		case 2:
 			res = "Снятие нагрузки"
 		case 4:
@@ -94,8 +137,8 @@ func GetFirst(resp *ua.ReadResponse) (string, string) {
 					}
 				case 2:
 					res += " по параметрам турбины\n"
-					if len(resp.Results) > 8 {
-						triptype := resp.Results[8].Value.Value().(uint32)
+					if len(resp.Results) > 10 {
+						triptype := resp.Results[10].Value.Value().(uint32)
 						switch triptype {
 						case uint32(math.Pow(2, 0)):
 							tagname = "PDT720"
@@ -155,32 +198,77 @@ func GetFirst(resp *ua.ReadResponse) (string, string) {
 							tagname = "TE515"
 							res += "проскок пламени в камере сгорания 5"
 						case uint32(math.Pow(2, 19)):
-							tagname = "TT581"
+							tagname = "TE521"
+							res += "погасло пламя в камере сгорания 1"
 						case uint32(math.Pow(2, 20)):
-							tagname = "TT582"
+							tagname = "TE531"
+							res += "погасло пламя в камере сгорания 1"
 						case uint32(math.Pow(2, 21)):
-							tagname = "TT583"
+							tagname = "TE522"
+							res += "погасло пламя в камере сгорания 2"
 						case uint32(math.Pow(2, 22)):
-							tagname = "TT590"
+							tagname = "TE532"
+							res += "погасло пламя в камере сгорания 2"
 						case uint32(math.Pow(2, 23)):
-							tagname = "TT591"
+							tagname = "TE523"
+							res += "погасло пламя в камере сгорания 3"
 						case uint32(math.Pow(2, 24)):
-							tagname = "TT592"
+							tagname = "TE533"
+							res += "погасло пламя в камере сгорания 3"
 						case uint32(math.Pow(2, 25)):
-							tagname = "TT593"
+							tagname = "TE524"
+							res += "погасло пламя в камере сгорания 4"
 						case uint32(math.Pow(2, 26)):
-							tagname = "TT594"
+							tagname = "TE534"
+							res += "погасло пламя в камере сгорания 4"
 						case uint32(math.Pow(2, 27)):
-							tagname = "TT595"
+							tagname = "TE525"
+							res += "погасло пламя в камере сгорания 5"
 						case uint32(math.Pow(2, 28)):
-							tagname = "TT596"
+							tagname = "TE535"
+							res += "погасло пламя в камере сгорания 5"
 						case uint32(math.Pow(2, 29)):
-							tagname = "TT597"
+							tagname = "TE584"
+							res += "горячо на выхлопе камеры сгорания 4"
+						case uint32(math.Pow(2, 30)):
+							tagname = "TE585"
+							res += "горячо на выхлопе камеры сгорания 5"
+						}
+						res += " - датчик " + tagname
+					}
+
+					if len(resp.Results) > 11 {
+						triptype := resp.Results[11].Value.Value().(uint32)
+						switch triptype {
+						case uint32(math.Pow(2, 0)):
+							tagname = "Gair"
+							res += "низкий расход воздуха"
+						case uint32(math.Pow(2, 1)):
+							tagname = "PT701"
+							res += "низкое давление воздуха за компрессором"
+						case uint32(math.Pow(2, 2)):
+							tagname = "PT701"
+							res += "высокое давление воздуха за компрессором"
+						case uint32(math.Pow(2, 3)):
+							tagname = "TE701"
+							res += "высокая температура воздуха за компрессором"
+						case uint32(math.Pow(2, 4)):
+							tagname = "PT406"
+							res += "низкое давление диффузионного газа"
+						case uint32(math.Pow(2, 5)):
+							tagname = "PT406"
+							res += "высокое давление диффузионного газа"
+						case uint32(math.Pow(2, 6)):
+							tagname = "PT407"
+							res += "низкое давление топлива на предв. смешивание"
+						case uint32(math.Pow(2, 7)):
+							tagname = "PT407"
+							res += "высокое давление топлива на предв. смешивание"
 						}
 						res += " - датчик " + tagname
 					}
 				case 4:
-					res += "\nсработал блок защиты турбины"
+					res += " от блока защиты турбины"
 				case 8:
 					if len(resp.Results) > 12 {
 						switch resp.Results[12].Value.Value().(uint32) {

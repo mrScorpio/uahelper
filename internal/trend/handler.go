@@ -79,19 +79,21 @@ func View(d *tagdata.AllTags, legSel map[string]bool, wTime *time.Time) http.Han
 			line.ExtendYAxis(*newAxis)
 
 			for _, v := range item.Pos {
-				lenShow := len(d.Tag[v].Y) / step
+				lenShow := len(d.Tag[v].Y)/step - step
 
 				tmShow := make([]string, lenShow)
 				vShow := make([]opts.LineData, lenShow)
 
 				for i := range tmShow { //прореживание
-					tmShow[i] = d.Tm[i*step]
-					vShow[i] = d.Tag[v].Y[i*step]
+					if i*step < len(d.Tm) {
+						tmShow[i] = d.Tm[i*step]
+						vShow[i] = d.Tag[v].Y[i*step]
+					}
 				}
 
 				line.SetXAxis(tmShow)
 
-				seriesName := d.Tag[v].Name + "_" + d.Tag[v].Dscr
+				seriesName := d.Tag[v].Name + " " + d.Tag[v].Dscr + ", " + d.Tag[v].Unit
 
 				line.AddSeries(seriesName, vShow,
 					charts.WithDatasetIndex(v),
@@ -106,7 +108,11 @@ func View(d *tagdata.AllTags, legSel map[string]bool, wTime *time.Time) http.Han
 
 		for _, v := range chsdTags {
 			tagname := strings.ToUpper(strings.TrimSpace(v))
-			legSel[tagname+"_"+d.Descr[tagname]] = true
+			for _, v := range d.Tag {
+				if tagname == v.Name {
+					legSel[tagname+" "+d.Descr[tagname]+", "+v.Unit] = true
+				}
+			}
 		}
 
 		clickHandler := `(params) => alert(params.seriesIndex)`
@@ -118,7 +124,7 @@ func View(d *tagdata.AllTags, legSel map[string]bool, wTime *time.Time) http.Han
 				Height:    "888px",
 				PageTitle: "чёткие трендики",
 			}),
-			charts.WithTitleOpts(opts.Title{Title: "Команда останова:", Subtitle: d.TripTM.Format(time.Stamp), Left: "center"}),
+			charts.WithTitleOpts(opts.Title{Title: "Момент останова:", Subtitle: d.TripTM.Format(time.Stamp), Left: "center"}),
 			charts.WithGridOpts(opts.Grid{Width: "999px"}),
 			charts.WithLegendOpts(opts.Legend{Type: "scroll", Orient: "vertical", X: "right", Selected: legSel}),
 			charts.WithDataZoomOpts(

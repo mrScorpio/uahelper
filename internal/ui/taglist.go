@@ -17,14 +17,24 @@ type Taglist struct {
 	list     layout.List
 	isOpen   bool
 	names    []string
-	SelTags  []int
+	dscrs    []string
+	SelTags  []string
 	ShowTags map[int]bool
+	ShowHint []bool
 }
 
 func NewTaglist(d *tagdata.AllTags, cfg *configs.Config) *Taglist {
 	w := new(app.Window)
 
 	//w.Option(app.Decorated(false))
+	for _, v := range cfg.ShowTagNames {
+		for i, tag := range d.Tag {
+			if v == tag.Name {
+				cfg.ShowTags[i] = true
+				break
+			}
+		}
+	}
 
 	pp := make([]widget.Bool, len(d.Tag))
 	for key, v := range cfg.ShowTags {
@@ -32,17 +42,21 @@ func NewTaglist(d *tagdata.AllTags, cfg *configs.Config) *Taglist {
 	}
 
 	names := make([]string, len(d.Tag))
-	selTags := make([]int, 0)
+	dscrs := make([]string, len(d.Tag))
+	showHint := make([]bool, len(d.Tag))
 	for i := range names {
 		names[i] = d.Tag[i].Name
+		dscrs[i] = " " + d.Tag[i].Dscr + ", " + d.Tag[i].Unit
 	}
 	return &Taglist{
 		w:        w,
 		pp:       pp,
 		list:     layout.List{Axis: layout.Vertical},
 		names:    names,
-		SelTags:  selTags,
+		dscrs:    dscrs,
+		SelTags:  cfg.ShowTagNames,
 		ShowTags: cfg.ShowTags,
+		ShowHint: showHint,
 	}
 }
 
@@ -58,11 +72,28 @@ func (tl *Taglist) Layout(gtx layout.Context, th *material.Theme) layout.Dimensi
 				btn := material.CheckBox(th, &tl.pp[i], item)
 				btn.Color = th.Palette.Fg
 				if tl.pp[i].Update(gtx) {
-					tl.SelTags = append(tl.SelTags, i)
 					tl.ShowTags[i] = tl.pp[i].Value
+					if !tl.ShowTags[i] {
+						delete(tl.ShowTags, i)
+					}
+					tl.SelTags = make([]string, 0)
+					for k := range tl.ShowTags {
+						tl.SelTags = append(tl.SelTags, tl.names[k])
+					}
+				}
+				if tl.pp[i].Hovered() {
+					btn.Label = item + tl.dscrs[i]
 				}
 				return btn.Layout(gtx)
 			})
+			/*
+				if tl.ShowHint[i] {
+					widgets = append(widgets, func(gtx layout.Context) layout.Dimensions {
+						hint := material.Label(th, unit.Sp(6), tl.dscrs[i])
+						return hint.Layout(gtx)
+					})
+				}
+			*/
 		}
 	}
 
@@ -73,7 +104,7 @@ func (tl *Taglist) Layout(gtx layout.Context, th *material.Theme) layout.Dimensi
 
 func (tl *Taglist) DrawPopup(th *material.Theme, cfg *configs.Config) error {
 	var ops op.Ops
-	tl.w.Option(app.Size(unit.Dp(333), unit.Dp(444)))
+	tl.w.Option(app.Size(unit.Dp(300), unit.Dp(500)))
 	tl.w.Option(app.Title("Список тэгов"))
 	for {
 		evt := tl.w.Event()
@@ -94,9 +125,36 @@ func (tl *Taglist) DrawPopup(th *material.Theme, cfg *configs.Config) error {
 			typ.Frame(gtx.Ops)
 		case app.DestroyEvent:
 			tl.isOpen = false
+			for key, v := range cfg.ShowTags {
+				if !v {
+					delete(cfg.ShowTags, key)
+				}
+			}
+			cfg.ShowTagNames = tl.SelTags
 			cfg.WrFile()
 			return typ.Err
 
 		}
+	}
+}
+
+func (tl *Taglist) UpdTaglist(d *tagdata.AllTags, cfg *configs.Config) {
+	for _, v := range cfg.ShowTagNames {
+		for i, tag := range d.Tag {
+			if v == tag.Name {
+				cfg.ShowTags[i] = true
+				break
+			}
+		}
+	}
+
+	tl.pp = make([]widget.Bool, len(d.Tag))
+	for key, v := range cfg.ShowTags {
+		tl.pp[key].Value = v
+	}
+
+	tl.names = make([]string, len(d.Tag))
+	for i := range tl.names {
+		tl.names[i] = d.Tag[i].Name
 	}
 }

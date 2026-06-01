@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"log"
+
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/widget"
@@ -39,6 +41,14 @@ func (dd *Dropdown) Layout(gtx layout.Context, th *material.Theme) layout.Dimens
 
 	if dd.dropdown.Clicked(gtx) {
 		dd.isOpen = !dd.isOpen
+		if dd.isOpen {
+			var err error
+			dd.items, err = SearchDataFiles()
+			if err != nil {
+				log.Println(err)
+			}
+			dd.itemClicks = make([]widget.Clickable, len(dd.items))
+		}
 	}
 
 	var widgets []layout.Widget
@@ -50,6 +60,7 @@ func (dd *Dropdown) Layout(gtx layout.Context, th *material.Theme) layout.Dimens
 
 	// Если список открыт, добавляем элементы
 	if dd.isOpen {
+
 		for i, item := range dd.items {
 			itemIndex := i
 			widgets = append(widgets, func(gtx layout.Context) layout.Dimensions {

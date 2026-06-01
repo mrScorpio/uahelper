@@ -14,7 +14,7 @@ import (
 )
 
 func StoreData(d *tagdata.AllTags, arhDirName string, periodic bool) (*bytes.Buffer, string, error) {
-	data, err := json.Marshal(*d)
+	data, err := json.MarshalIndent(*d, "", "  ")
 	if err != nil {
 		return nil, "", err
 	}
