@@ -16,6 +16,7 @@ type Taglist struct {
 	pp       []widget.Bool
 	list     layout.List
 	isOpen   bool
+	isCls    bool
 	names    []string
 	dscrs    []string
 	SelTags  []string
@@ -25,7 +26,8 @@ type Taglist struct {
 
 func NewTaglist(d *tagdata.AllTags, cfg *configs.Config) *Taglist {
 	w := new(app.Window)
-
+	d.Mu.RLock()
+	defer d.Mu.RUnlock()
 	//w.Option(app.Decorated(false))
 	for _, v := range cfg.ShowTagNames {
 		for i, tag := range d.Tag {
@@ -43,7 +45,7 @@ func NewTaglist(d *tagdata.AllTags, cfg *configs.Config) *Taglist {
 
 	names := make([]string, len(d.Tag))
 	dscrs := make([]string, len(d.Tag))
-	showHint := make([]bool, len(d.Tag))
+
 	for i := range names {
 		names[i] = d.Tag[i].Name
 		dscrs[i] = " " + d.Tag[i].Dscr + ", " + d.Tag[i].Unit
@@ -56,19 +58,19 @@ func NewTaglist(d *tagdata.AllTags, cfg *configs.Config) *Taglist {
 		dscrs:    dscrs,
 		SelTags:  cfg.ShowTagNames,
 		ShowTags: cfg.ShowTags,
-		ShowHint: showHint,
+		isCls:    true,
 	}
 }
 
 func (tl *Taglist) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	// Стиль кнопки выпадающего списка
 
-	var widgets []layout.Widget
+	widgets := make([]layout.Widget, len(tl.names))
 
 	// Если список открыт, добавляем элементы
-	if tl.isOpen {
+	if !tl.isCls {
 		for i, item := range tl.names {
-			widgets = append(widgets, func(gtx layout.Context) layout.Dimensions {
+			widgets[i] = func(gtx layout.Context) layout.Dimensions {
 				btn := material.CheckBox(th, &tl.pp[i], item)
 				btn.Color = th.Palette.Fg
 				if tl.pp[i].Update(gtx) {
@@ -85,15 +87,7 @@ func (tl *Taglist) Layout(gtx layout.Context, th *material.Theme) layout.Dimensi
 					btn.Label = item + tl.dscrs[i]
 				}
 				return btn.Layout(gtx)
-			})
-			/*
-				if tl.ShowHint[i] {
-					widgets = append(widgets, func(gtx layout.Context) layout.Dimensions {
-						hint := material.Label(th, unit.Sp(6), tl.dscrs[i])
-						return hint.Layout(gtx)
-					})
-				}
-			*/
+			}
 		}
 	}
 
@@ -104,6 +98,8 @@ func (tl *Taglist) Layout(gtx layout.Context, th *material.Theme) layout.Dimensi
 
 func (tl *Taglist) DrawPopup(th *material.Theme, cfg *configs.Config) error {
 	var ops op.Ops
+	defer cfg.WrFile()
+	tl.isCls = false
 	tl.w.Option(app.Size(unit.Dp(300), unit.Dp(500)))
 	tl.w.Option(app.Title("Список тэгов"))
 	for {
@@ -124,21 +120,23 @@ func (tl *Taglist) DrawPopup(th *material.Theme, cfg *configs.Config) error {
 				))
 			typ.Frame(gtx.Ops)
 		case app.DestroyEvent:
-			tl.isOpen = false
-			for key, v := range cfg.ShowTags {
-				if !v {
-					delete(cfg.ShowTags, key)
+			/*
+				for key, v := range cfg.ShowTags {
+					if !v {
+						delete(cfg.ShowTags, key)
+					}
 				}
-			}
+			*/
 			cfg.ShowTagNames = tl.SelTags
-			cfg.WrFile()
+			tl.isCls = true
 			return typ.Err
-
 		}
 	}
 }
 
 func (tl *Taglist) UpdTaglist(d *tagdata.AllTags, cfg *configs.Config) {
+	d.Mu.RLock()
+	defer d.Mu.RUnlock()
 	for _, v := range cfg.ShowTagNames {
 		for i, tag := range d.Tag {
 			if v == tag.Name {

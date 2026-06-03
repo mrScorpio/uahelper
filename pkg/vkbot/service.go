@@ -1,8 +1,6 @@
 package vkbot
 
 import (
-	"context"
-
 	botgolang "github.com/mail-ru-im/bot-golang"
 	"github.com/mrscorpio/uahelper/configs"
 )
@@ -11,7 +9,7 @@ type VkBot struct {
 	B *botgolang.Bot
 }
 
-func NewBot(ctx context.Context, cfg *configs.Config, dontstart bool) (*VkBot, error) {
+func NewBot(cfg *configs.Config, dontstart bool) (*VkBot, error) {
 	if dontstart || !cfg.VkBot {
 		return nil, nil
 	}

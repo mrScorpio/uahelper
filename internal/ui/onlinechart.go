@@ -20,6 +20,8 @@ func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
 		TagOrder = make(map[int]int)
 		TagLegend = make([]string, 0)
 	}
+	d.Mu.RLock()
+
 	minInd := len(d.Tm) - 1
 	for key, v := range cfg.ShowTags {
 		if v {
@@ -61,7 +63,7 @@ func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
 			}
 		}
 	}
-
+	d.Mu.RUnlock()
 	p, err := vcharts.LineRender(
 		values,
 		vcharts.XAxisDataOptionFunc(tm),

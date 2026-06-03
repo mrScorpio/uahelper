@@ -55,7 +55,7 @@ func main() {
 	if err != nil {
 		log.Println(err)
 	}
-	vkb, err := vkbot.NewBot(ctx, cfg, MdRd)
+	vkb, err := vkbot.NewBot(cfg, MdRd)
 	if err != nil {
 		log.Println(err)
 	}
@@ -170,13 +170,15 @@ func main() {
 						}
 						// заполняем слайсы новыми данными
 						for i := range item.Resp.Results {
-							crTm = item.Resp.Results[i].ServerTimestamp.Local().Format("15:04:05.000")
+							if i == len(item.Resp.Results)-1 {
+								crTm = item.Resp.Results[0].ServerTimestamp.Local().Format("15:04:05.000")
+							}
 							v := item.Resp.Results[i].Value.Value()
 							if v == nil {
-								d.AddV(item.FirstPos+i, 6.6, crTm)
+								d.AddV(item.FirstPos+i, 6.6)
 								fmt.Println("tag N", item.FirstPos+i, "has no data")
 							} else {
-								d.AddV(item.FirstPos+i, float64(v.(float32)), crTm)
+								d.AddV(item.FirstPos+i, float64(v.(float32)))
 							}
 						}
 
@@ -187,7 +189,9 @@ func main() {
 						}
 					}
 					if newTm != "" {
+						d.Mu.Lock()
 						d.Tm = append(d.Tm, newTm)
+						d.Mu.Unlock()
 					}
 					time.Sleep(time.Duration(d.MinCycle) * time.Millisecond) // ждем время минимального цикла
 				}

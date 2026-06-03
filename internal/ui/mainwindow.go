@@ -121,16 +121,18 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 			gtx := app.NewContext(&ops, typ)
 
 			Gogo = swUpdPlot.Value
+			d.Mu.RLock()
 			diap = float32(len(d.Tm)) / float32(cap(d.Tm))
+			d.Mu.RUnlock()
 
 			if swUpdPlot.Pressed() {
 				crSld.Value = 1
+				d.Mu.RLock()
 				lastLen = float32(len(d.Tm) - 1)
+				d.Mu.RUnlock()
 			}
 			if myBtn.Clicked(gtx) {
-				taglist.isOpen = !taglist.isOpen
-
-				if taglist.isOpen {
+				if taglist.isCls {
 					go taglist.DrawPopup(th, cfg)
 				} else {
 					taglist.w.Invalidate()

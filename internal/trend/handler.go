@@ -131,7 +131,11 @@ func View(d *tagdata.AllTags, legSel map[string]bool, wTime *time.Time) http.Han
 				opts.DataZoom{Type: "slider", Orient: "horizontal"},
 				opts.DataZoom{Type: "inside", Orient: "vertical", YAxisIndex: zoomAxis},
 			),
-			charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true), Trigger: "axis"}),
+			charts.WithTooltipOpts(opts.Tooltip{
+				Show:           opts.Bool(true),
+				Trigger:        "axis",
+				ValueFormatter: opts.FuncOpts(`(value) => value.toFixed(3)`),
+			}),
 			charts.WithEventListeners(
 				event.Listener{
 					EventName: "dblclick",

@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-echarts/go-echarts/v2/opts"
@@ -36,6 +37,7 @@ type AllTags struct {
 	Tm       []string
 	TripTM   time.Time
 	TripTag  string
+	Mu       sync.RWMutex `json:"-"`
 }
 
 func (at *AllTags) NewTag(name string, dscr string, cycle int) *TagData {
@@ -46,6 +48,8 @@ func (at *AllTags) NewTag(name string, dscr string, cycle int) *TagData {
 	t := make([]string, 0, 6)
 	y := make([]opts.LineData, 0, 6666)
 	at.Descr[name] = dscr
+	at.Mu.Lock()
+	defer at.Mu.Unlock()
 	return &TagData{
 		Name:    name,
 		Dscr:    dscr,
@@ -55,14 +59,16 @@ func (at *AllTags) NewTag(name string, dscr string, cycle int) *TagData {
 	}
 }
 
-func (at *AllTags) AddV(i int, v float64, t string) {
+func (at *AllTags) AddV(i int, v float64) {
 	if v > 66666.66666 {
 		v = 0.0
 	}
 	if v < -66666.66666 {
 		v = 0.0
 	}
+	at.Mu.Lock()
 	at.Tag[i].Y = append(at.Tag[i].Y, opts.LineData{Value: v})
+	defer at.Mu.Unlock()
 	//	at.Tag[i].T = append(at.Tag[i].T, t)
 	unit := at.Tag[i].Unit
 	if len(at.Tag[i].Y) == 1 {
@@ -77,40 +83,30 @@ func (at *AllTags) AddV(i int, v float64, t string) {
 		}
 	}
 
-	if v > at.Tag[i].Max || v < at.Tag[i].Min {
-		/*	l1:
-			for key := range at.Unit {
-				for _, v := range at.Unit[key].Pos {
-					if i == v {
-						unit = key
-						break l1
-					}
-				}
-			}
-		*/
-
-		if v > at.Tag[i].Max {
-			at.Tag[i].Max = v
-			if at.Tag[i].Max > at.Unit[unit].Max {
-				at.Unit[unit].Max = at.Tag[i].Max
-			}
-		}
-
-		if v < at.Tag[i].Min {
-			at.Tag[i].Min = v
-			if at.Tag[i].Min < at.Unit[unit].Min {
-				at.Unit[unit].Min = at.Tag[i].Min
-			}
+	if v > at.Tag[i].Max {
+		at.Tag[i].Max = v
+		if at.Tag[i].Max > at.Unit[unit].Max {
+			at.Unit[unit].Max = at.Tag[i].Max
 		}
 	}
+
+	if v < at.Tag[i].Min {
+		at.Tag[i].Min = v
+		if at.Tag[i].Min < at.Unit[unit].Min {
+			at.Unit[unit].Min = at.Tag[i].Min
+		}
+	}
+
 }
 
 func (at *AllTags) Clean() {
+	at.Mu.Lock()
 	for i := range at.Tag {
 		at.Tag[i].T = make([]string, 0, 6666)
 		at.Tag[i].Y = make([]opts.LineData, 0, 6666)
 	}
 	at.Tm = make([]string, 0, 6666)
+	at.Mu.Unlock()
 }
 
 func (d *AllTags) ReadOpcTagList(ctx context.Context, cl []*opcua.Client) error {
@@ -127,6 +123,7 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl []*opcua.Client) error 
 	}
 
 	scanner := bufio.NewScanner(tagfile)
+
 	d.Ccs = make(map[int]*CycleData)
 	nextCycle := 222
 	d.MinCycle = 666
@@ -189,11 +186,13 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl []*opcua.Client) error 
 		id[i], err = ua.ParseNodeID("ns=1;s=REGUL_R500." + v + ".VALUE")
 		if err != nil {
 			log.Fatalf("invalid node id: %v", err)
+			return err
 		}
 
 		uid[i], err = ua.ParseNodeID("ns=1;s=REGUL_R500." + v + ".EU")
 		if err != nil {
 			log.Fatalf("invalid node id: %v", err)
+			return err
 		}
 
 		if newTags {
@@ -201,6 +200,7 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl []*opcua.Client) error 
 			descr, err := node[i].Description(ctx)
 			if err != nil {
 				log.Fatal(err)
+				return err
 			}
 
 			fullTag := strings.Split(v, ".")
