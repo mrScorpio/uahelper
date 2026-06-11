@@ -4,7 +4,6 @@ import (
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/mrscorpio/uahelper/configs"
@@ -12,20 +11,20 @@ import (
 )
 
 type Taglist struct {
-	w        *app.Window
+	//	w        *app.Window
 	pp       []widget.Bool
 	list     layout.List
-	isOpen   bool
 	isCls    bool
 	names    []string
 	dscrs    []string
 	SelTags  []string
 	ShowTags map[int]bool
 	ShowHint []bool
+	//Widgets  []layout.Widget
 }
 
 func NewTaglist(d *tagdata.AllTags, cfg *configs.Config) *Taglist {
-	w := new(app.Window)
+
 	d.Mu.RLock()
 	defer d.Mu.RUnlock()
 	//w.Option(app.Decorated(false))
@@ -51,7 +50,6 @@ func NewTaglist(d *tagdata.AllTags, cfg *configs.Config) *Taglist {
 		dscrs[i] = " " + d.Tag[i].Dscr + ", " + d.Tag[i].Unit
 	}
 	return &Taglist{
-		w:        w,
 		pp:       pp,
 		list:     layout.List{Axis: layout.Vertical},
 		names:    names,
@@ -63,11 +61,8 @@ func NewTaglist(d *tagdata.AllTags, cfg *configs.Config) *Taglist {
 }
 
 func (tl *Taglist) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	// Стиль кнопки выпадающего списка
-
-	widgets := make([]layout.Widget, len(tl.names))
-
 	// Если список открыт, добавляем элементы
+	widgets := make([]layout.Widget, len(tl.names))
 	if !tl.isCls {
 		for i, item := range tl.names {
 			widgets[i] = func(gtx layout.Context) layout.Dimensions {
@@ -96,14 +91,13 @@ func (tl *Taglist) Layout(gtx layout.Context, th *material.Theme) layout.Dimensi
 	})
 }
 
-func (tl *Taglist) DrawPopup(th *material.Theme, cfg *configs.Config) error {
+func (tl *Taglist) DrawPopup(w *app.Window, th *material.Theme, cfg *configs.Config) error {
 	var ops op.Ops
 	defer cfg.WrFile()
 	tl.isCls = false
-	tl.w.Option(app.Size(unit.Dp(300), unit.Dp(500)))
-	tl.w.Option(app.Title("Список тэгов"))
+
 	for {
-		evt := tl.w.Event()
+		evt := w.Event()
 
 		switch typ := evt.(type) {
 		case app.FrameEvent:
@@ -152,7 +146,11 @@ func (tl *Taglist) UpdTaglist(d *tagdata.AllTags, cfg *configs.Config) {
 	}
 
 	tl.names = make([]string, len(d.Tag))
+	tl.dscrs = make([]string, len(d.Tag))
 	for i := range tl.names {
 		tl.names[i] = d.Tag[i].Name
+		tl.dscrs[i] = " " + d.Tag[i].Dscr + ", " + d.Tag[i].Unit
 	}
+	Diap = int64(len(d.Tm))
+	LastInd = int(Diap) - 66
 }

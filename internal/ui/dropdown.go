@@ -51,7 +51,7 @@ func (dd *Dropdown) Layout(gtx layout.Context, th *material.Theme) layout.Dimens
 		}
 	}
 
-	var widgets []layout.Widget
+	widgets := make([]layout.Widget, 0)
 
 	// Добавляем кнопку как первый элемент
 	widgets = append(widgets, func(gtx layout.Context) layout.Dimensions {

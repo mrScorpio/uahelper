@@ -53,6 +53,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 
 	swUpdPlot := new(widget.Bool)
 	swUpdPlot.Value = true
+	Gogo = true
 
 	diapSld := new(widget.Float)
 	Diap = 6666
@@ -109,10 +110,10 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 	filesDD := NewDropdown(arhFiles)
 
 	TL = NewTaglist(d, cfg)
-	taglist := TL
 
 	th := material.NewTheme()
 	var lastLen float32 = 0.0
+
 	for {
 		evt := w.Event()
 
@@ -132,11 +133,20 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 				d.Mu.RUnlock()
 			}
 			if myBtn.Clicked(gtx) {
-				if taglist.isCls {
-					go taglist.DrawPopup(th, cfg)
-				} else {
-					taglist.w.Invalidate()
-					taglist.w.Perform(system.ActionClose)
+				if TL.isCls {
+					wTags := new(app.Window)
+					wTags.Option(app.Size(unit.Dp(300), unit.Dp(500)))
+					wTags.Option(app.Title("Список тэгов"))
+					go func() {
+						err := TL.DrawPopup(wTags, th, cfg)
+						if err != nil {
+							log.Println(err)
+						}
+						//log.Println("!")
+						//taglist.isCls = true
+						//wTags.Invalidate()
+						//wTags.Perform(system.ActionClose)
+					}()
 				}
 			}
 			if brBtn.Clicked(gtx) {
@@ -422,6 +432,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 												Color: color.NRGBA{R: 6, G: 6, B: 222, A: 255},
 												Width: unit.Dp(2),
 											}
+
 											if !mdrd {
 												txt := material.H6(th, "")
 												return txt.Layout(gtx)

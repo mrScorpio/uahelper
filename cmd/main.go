@@ -189,9 +189,7 @@ func main() {
 						}
 					}
 					if newTm != "" {
-						d.Mu.Lock()
-						d.Tm = append(d.Tm, newTm)
-						d.Mu.Unlock()
+						d.AddT(newTm)
 					}
 					time.Sleep(time.Duration(d.MinCycle) * time.Millisecond) // ждем время минимального цикла
 				}
@@ -224,7 +222,7 @@ func main() {
 					// момент запуска с очисткой данных
 					if !spin && curRpm > 666.666 {
 						spin = true
-						d.Clean()
+						//d.Clean()
 						d.TripTM = time.Now().Add(time.Duration(66666) * time.Hour) // типа трип когда-то случится
 						d.TripTag = "X3"
 						mes := "раскрутка, смотреть на ingcgt.ru"
@@ -271,7 +269,8 @@ func main() {
 							}
 						}
 						if vkb != nil {
-							toSend, err := os.OpenFile(filename, os.O_RDONLY, 0755)
+							err := vkb.B.NewTextMessage(cfg.VkChat, "вращения нет").Send()
+							toSend, err := os.OpenFile(arhDirName+filename, os.O_RDONLY, 0755)
 							if err != nil {
 								log.Println(err)
 							} else {
@@ -290,7 +289,11 @@ func main() {
 									fmt.Println(err)
 									continue
 								}
-								first := resp.Results[0].Value.Value().(uint32) // фиксируем вид останова
+								f := resp.Results[0].Value.Value() // фиксируем вид останова
+								if f == nil {
+									continue
+								}
+								first := f.(uint32)
 
 								if first != 0 && prevFirst == 0 {
 									mes, triptag := tripreport.GetFirst(resp) // вычисляем первопричину
@@ -320,9 +323,9 @@ func main() {
 						_, _, err := repository.StoreData(d, arhDirName, true)
 						if err != nil {
 							log.Println(err)
-						} else {
+						} /*else {	!больше не чистим!
 							d.Clean()
-						}
+						}*/
 						//check arch send
 						/*
 							if b != nil {
@@ -346,7 +349,9 @@ func main() {
 
 					} else {
 						// пишем данные в джисон-файл по тикеру
+						d.Mu.RLock()
 						data, err := json.Marshal(d)
+						d.Mu.RUnlock()
 						if err != nil {
 							log.Println(err)
 						} else {
@@ -478,9 +483,11 @@ func main() {
 	for {
 		if MdRd {
 			cmd := exec.Command(cfg.BrPath, httpAddr)
-			err := cmd.Start()
-			if err != nil {
-				log.Println(err)
+			if filename != "" {
+				err := cmd.Start()
+				if err != nil {
+					log.Println(err)
+				}
 			}
 			fmt.Printf("что именно пялим > ")
 		}

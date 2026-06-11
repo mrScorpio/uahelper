@@ -14,7 +14,9 @@ import (
 )
 
 func StoreData(d *tagdata.AllTags, arhDirName string, periodic bool) (*bytes.Buffer, string, error) {
-	data, err := json.MarshalIndent(*d, "", "  ")
+	d.Mu.RLock()
+	data, err := json.MarshalIndent(d, "", "  ")
+	d.Mu.RUnlock()
 	if err != nil {
 		return nil, "", err
 	}
@@ -94,7 +96,9 @@ func ReadStored(d *tagdata.AllTags, filename string) (time.Time, error) {
 		fmt.Println(n)
 		rc.Close()
 	}
+	d.Mu.Lock()
 	err = json.Unmarshal(buf.Bytes(), d)
+	d.Mu.Unlock()
 	if err != nil {
 		return tm, err
 	}

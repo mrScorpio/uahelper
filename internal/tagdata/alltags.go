@@ -109,6 +109,34 @@ func (at *AllTags) Clean() {
 	at.Mu.Unlock()
 }
 
+func (at *AllTags) AddT(newT string) {
+	var first, last time.Time
+	var err error
+	at.Mu.Lock()
+	defer at.Mu.Unlock()
+	at.Tm = append(at.Tm, newT)
+	first, err = time.Parse("15:04:05.000", at.Tm[0])
+	last, err = time.Parse("15:04:05.000", newT)
+	if err != nil {
+		log.Println(err)
+	}
+	if first.Hour() > last.Hour() {
+		first = first.Add(3 * time.Hour)
+		last = last.Add(3 * time.Hour)
+	}
+	if last.Sub(first) > time.Duration(44*time.Minute) {
+		for i := range at.Tag {
+			n := len(at.Tag[i].Y)
+			//c := cap(at.Tag[i].Y)
+			at.Tag[i].Y = at.Tag[i].Y[666 : n-1]
+		}
+		nt := len(at.Tm)
+		//ct := cap(at.Tm)
+		at.Tm = at.Tm[666 : nt-1]
+		//log.Println(cap(at.Tm))
+	}
+}
+
 func (d *AllTags) ReadOpcTagList(ctx context.Context, cl []*opcua.Client) error {
 	if cl[0] == nil {
 		return nil
