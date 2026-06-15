@@ -120,11 +120,13 @@ func (at *AllTags) AddT(newT string) {
 	if err != nil {
 		log.Println(err)
 	}
+
 	if first.Hour() > last.Hour() {
 		first = first.Add(3 * time.Hour)
-		last = last.Add(3 * time.Hour)
+		last = last.Add((24 + 3) * time.Hour)
 	}
-	if last.Sub(first) > time.Duration(44*time.Minute) {
+
+	if last.Sub(first) > time.Duration(22*time.Minute) {
 		for i := range at.Tag {
 			n := len(at.Tag[i].Y)
 			//c := cap(at.Tag[i].Y)
@@ -134,6 +136,7 @@ func (at *AllTags) AddT(newT string) {
 		//ct := cap(at.Tm)
 		at.Tm = at.Tm[666 : nt-1]
 		//log.Println(cap(at.Tm))
+		log.Println(last.Sub(first), first, last)
 	}
 }
 

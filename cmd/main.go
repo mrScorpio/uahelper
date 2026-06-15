@@ -467,14 +467,15 @@ func main() {
 	go app.Main()
 
 	conn, err := net.Dial("tcp", "ya.ru:80")
-	myip := strings.Split(conn.LocalAddr().String(), ":")
+
 	if err != nil {
 		log.Println(err)
 	} else {
 		//httpAddr = "http://" + myip[0] + cfg.TrPort + "/?zoom=st50_bzk&show=zt504&step=1"
+		myip := strings.Split(conn.LocalAddr().String(), ":")
 		httpAddr = ui.HttPath(d, cfg, myip[0])
+		conn.Close()
 	}
-	conn.Close()
 
 	fmt.Println("тренды пялить на", httpAddr)
 
