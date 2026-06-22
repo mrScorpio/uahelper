@@ -101,7 +101,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 			NewData <- "not found"
 		}
 		<-DataLoaded
-		Diap = int64(len(d.Tm))
+		Diap = int64(len(d.Tt))
 		DrawChart(d, cfg)
 		swUpdPlot.Value = false
 		//time.Sleep(time.Duration(6666) * time.Millisecond)
@@ -123,13 +123,13 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 
 			Gogo = swUpdPlot.Value
 			d.Mu.RLock()
-			diap = float32(len(d.Tm)) / float32(cap(d.Tm))
+			diap = float32(len(d.Tt)) / float32(cap(d.Tt))
 			d.Mu.RUnlock()
 
 			if swUpdPlot.Pressed() {
 				crSld.Value = 1
 				d.Mu.RLock()
-				lastLen = float32(len(d.Tm) - 1)
+				lastLen = float32(len(d.Tt) - 1)
 				d.Mu.RUnlock()
 			}
 			if myBtn.Clicked(gtx) {
@@ -162,7 +162,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 
 			if crSld.Dragging() {
 				if Gogo {
-					lastLen = float32(len(d.Tm) - 1)
+					lastLen = float32(len(d.Tt) - 1)
 				}
 				LastInd = int(crSld.Value * lastLen)
 				if crSld.Value < 1 {

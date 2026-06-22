@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-echarts/go-echarts/v2/opts"
 	"github.com/gopcua/opcua"
 	"github.com/gopcua/opcua/ua"
 )
@@ -34,7 +33,7 @@ type AllTags struct {
 	Descr    map[string]string
 	Ccs      map[int]*CycleData
 	MinCycle int
-	Tm       []string
+	Tt       []time.Time
 	TripTM   time.Time
 	TripTag  string
 	Mu       sync.RWMutex `json:"-"`
@@ -43,18 +42,21 @@ type AllTags struct {
 func (at *AllTags) NewTag(name string, dscr string, cycle int) *TagData {
 	if at.Tag[0] == nil {
 		at.Descr = make(map[string]string)
-		at.Tm = make([]string, 0, 6666)
+		//at.Tm = make([]string, 0, 6666)
+		at.Tt = make([]time.Time, 0, 6666)
 	}
-	t := make([]string, 0, 6)
-	y := make([]opts.LineData, 0, 6666)
+	//t := make([]string, 0, 6)
+	//y := make([]opts.LineData, 0, 6666)
+	v := make([]float64, 0, 6666)
 	at.Descr[name] = dscr
 	at.Mu.Lock()
 	defer at.Mu.Unlock()
 	return &TagData{
-		Name:    name,
-		Dscr:    dscr,
-		Y:       y,
-		T:       t,
+		Name: name,
+		Dscr: dscr,
+		//Y:    y,
+		//T:       t,
+		V:       v,
 		CycleMs: cycle,
 	}
 }
@@ -67,11 +69,11 @@ func (at *AllTags) AddV(i int, v float64) {
 		v = 0.0
 	}
 	at.Mu.Lock()
-	at.Tag[i].Y = append(at.Tag[i].Y, opts.LineData{Value: v})
+	at.Tag[i].V = append(at.Tag[i].V, v)
 	defer at.Mu.Unlock()
 	//	at.Tag[i].T = append(at.Tag[i].T, t)
 	unit := at.Tag[i].Unit
-	if len(at.Tag[i].Y) == 1 {
+	if len(at.Tag[i].V) == 1 {
 		at.Tag[i].Max = v
 	}
 
@@ -102,41 +104,30 @@ func (at *AllTags) AddV(i int, v float64) {
 func (at *AllTags) Clean() {
 	at.Mu.Lock()
 	for i := range at.Tag {
-		at.Tag[i].T = make([]string, 0, 6666)
-		at.Tag[i].Y = make([]opts.LineData, 0, 6666)
+		//at.Tag[i].T = make([]string, 0, 6666)
+		//at.Tag[i].Y = make([]opts.LineData, 0, 6666)
+		at.Tag[i].V = make([]float64, 0, 6666)
 	}
-	at.Tm = make([]string, 0, 6666)
+	//at.Tm = make([]string, 0, 6666)
+	at.Tt = make([]time.Time, 0, 6666)
 	at.Mu.Unlock()
 }
 
-func (at *AllTags) AddT(newT string) {
-	var first, last time.Time
-	var err error
+func (at *AllTags) AddT(newT time.Time) {
 	at.Mu.Lock()
 	defer at.Mu.Unlock()
-	at.Tm = append(at.Tm, newT)
-	first, err = time.Parse("15:04:05.000", at.Tm[0])
-	last, err = time.Parse("15:04:05.000", newT)
-	if err != nil {
-		log.Println(err)
-	}
-
-	if first.Hour() > last.Hour() {
-		first = first.Add(3 * time.Hour)
-		last = last.Add((24 + 3) * time.Hour)
-	}
-
-	if last.Sub(first) > time.Duration(22*time.Minute) {
+	at.Tt = append(at.Tt, newT)
+	if newT.Sub(at.Tt[0]) > time.Duration(66*time.Minute) {
 		for i := range at.Tag {
-			n := len(at.Tag[i].Y)
+			n := len(at.Tag[i].V)
 			//c := cap(at.Tag[i].Y)
-			at.Tag[i].Y = at.Tag[i].Y[666 : n-1]
+			//at.Tag[i].Y = at.Tag[i].Y[666 : n-1]
+			at.Tag[i].V = at.Tag[i].V[666 : n-1]
 		}
-		nt := len(at.Tm)
+		nt := len(at.Tt)
 		//ct := cap(at.Tm)
-		at.Tm = at.Tm[666 : nt-1]
-		//log.Println(cap(at.Tm))
-		log.Println(last.Sub(first), first, last)
+		//at.Tm = at.Tm[666 : nt-1]
+		at.Tt = at.Tt[666 : nt-1]
 	}
 }
 

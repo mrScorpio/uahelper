@@ -22,7 +22,7 @@ func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
 	}
 	d.Mu.RLock()
 
-	minInd := len(d.Tm) - 1
+	minInd := len(d.Tt) - 1
 	for key, v := range cfg.ShowTags {
 		if v {
 			values[i] = make([]float64, Diap)
@@ -30,8 +30,8 @@ func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
 				TagOrder[key] = i
 				TagLegend = append(TagLegend, d.Tag[key].Name)
 			}
-			if len(d.Tag[key].Y) < minInd+1 {
-				minInd = len(d.Tag[key].Y) - 1
+			if len(d.Tag[key].V) < minInd+1 {
+				minInd = len(d.Tag[key].V) - 1
 			}
 			if ScAuto {
 				if d.Tag[key].Max > ScMax {
@@ -51,17 +51,19 @@ func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
 	}
 	j := LastInd
 	if j > 0 {
+		cfg.Mu.RLock()
 		for i := Diap - 1; i >= 0; i-- {
-			tm[i] = d.Tm[j]
+			tm[i] = d.Tt[j].Format("15:04:05")
 			for key, v := range cfg.ShowTags {
 				if v {
-					values[TagOrder[key]][i] = d.Tag[key].Y[j].Value.(float64)
+					values[TagOrder[key]][i] = d.Tag[key].V[j]
 				}
 			}
 			if j > 0 {
 				j--
 			}
 		}
+		cfg.Mu.RUnlock()
 	}
 	d.Mu.RUnlock()
 	p, err := vcharts.LineRender(

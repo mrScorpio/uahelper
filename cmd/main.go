@@ -136,7 +136,8 @@ func main() {
 		// рутина отвечает за запросы к серверу данных
 		go func() {
 			defer wg.Done()
-
+			crTm := time.Now()
+			newTm := crTm
 			for {
 				select {
 				case <-ctx.Done():
@@ -144,8 +145,7 @@ func main() {
 					return
 
 				default:
-					newTm := ""
-					crTm := ""
+					//var crTm time.Time
 					// перебираем циклы и формируем обращения к серверу
 					for key, item := range d.Ccs {
 						// если пришло время обратиться, то обращаемся
@@ -171,7 +171,7 @@ func main() {
 						// заполняем слайсы новыми данными
 						for i := range item.Resp.Results {
 							if i == len(item.Resp.Results)-1 {
-								crTm = item.Resp.Results[0].ServerTimestamp.Local().Format("15:04:05.000")
+								crTm = item.Resp.Results[0].ServerTimestamp.Local() //.Format("15:04:05.000")
 							}
 							v := item.Resp.Results[i].Value.Value()
 							if v == nil {
@@ -187,10 +187,11 @@ func main() {
 						if item.Cct <= d.MinCycle {
 							newTm = crTm
 						}
+
 					}
-					if newTm != "" {
-						d.AddT(newTm)
-					}
+					//if newTm != crTm {
+					d.AddT(newTm)
+					//}
 					time.Sleep(time.Duration(d.MinCycle) * time.Millisecond) // ждем время минимального цикла
 				}
 			}
@@ -216,8 +217,8 @@ func main() {
 					return
 				case <-chkSpin.C:
 					var curRpm float64
-					if len(d.Tag[rpmInd].Y) > 0 {
-						curRpm = d.Tag[rpmInd].Y[len(d.Tag[rpmInd].Y)-1].Value.(float64) // если нашли тэг оборотов, то зачитываем его
+					if len(d.Tag[rpmInd].V) > 0 {
+						curRpm = d.Tag[rpmInd].V[len(d.Tag[rpmInd].V)-1] // если нашли тэг оборотов, то зачитываем его
 					}
 					// момент запуска с очисткой данных
 					if !spin && curRpm > 666.666 {

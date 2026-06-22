@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/joho/godotenv"
 )
@@ -28,6 +29,7 @@ type Config struct {
 	BrPath       string
 	ShowTags     map[int]bool
 	ShowTagNames []string
+	Mu           sync.RWMutex `json:"-"`
 }
 
 func LoadConfig() *Config {
@@ -115,7 +117,9 @@ func LoadConfig() *Config {
 }
 
 func (c *Config) WrFile() error {
+	c.Mu.RLock()
 	data, err := json.MarshalIndent(&c, "", "  ")
+	c.Mu.RUnlock()
 	if err != nil {
 		return err
 	}

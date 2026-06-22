@@ -12,13 +12,13 @@ import (
 
 type Taglist struct {
 	//	w        *app.Window
-	pp       []widget.Bool
-	list     layout.List
-	isCls    bool
-	names    []string
-	dscrs    []string
-	SelTags  []string
-	ShowTags map[int]bool
+	pp    []widget.Bool
+	list  layout.List
+	isCls bool
+	names []string
+	dscrs []string
+	//SelTags []string
+	//ShowTags map[int]bool
 	ShowHint []bool
 	//Widgets  []layout.Widget
 }
@@ -31,16 +31,20 @@ func NewTaglist(d *tagdata.AllTags, cfg *configs.Config) *Taglist {
 	for _, v := range cfg.ShowTagNames {
 		for i, tag := range d.Tag {
 			if v == tag.Name {
+				cfg.Mu.RLock()
 				cfg.ShowTags[i] = true
+				cfg.Mu.RUnlock()
 				break
 			}
 		}
 	}
 
 	pp := make([]widget.Bool, len(d.Tag))
+	cfg.Mu.RLock()
 	for key, v := range cfg.ShowTags {
 		pp[key].Value = v
 	}
+	cfg.Mu.RUnlock()
 
 	names := make([]string, len(d.Tag))
 	dscrs := make([]string, len(d.Tag))
@@ -50,17 +54,17 @@ func NewTaglist(d *tagdata.AllTags, cfg *configs.Config) *Taglist {
 		dscrs[i] = " " + d.Tag[i].Dscr + ", " + d.Tag[i].Unit
 	}
 	return &Taglist{
-		pp:       pp,
-		list:     layout.List{Axis: layout.Vertical},
-		names:    names,
-		dscrs:    dscrs,
-		SelTags:  cfg.ShowTagNames,
-		ShowTags: cfg.ShowTags,
-		isCls:    true,
+		pp:    pp,
+		list:  layout.List{Axis: layout.Vertical},
+		names: names,
+		dscrs: dscrs,
+		//SelTags: cfg.ShowTagNames,
+		//ShowTags: cfg.ShowTags,
+		isCls: true,
 	}
 }
 
-func (tl *Taglist) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+func (tl *Taglist) Layout(gtx layout.Context, th *material.Theme, cfg *configs.Config) layout.Dimensions {
 	// Если список открыт, добавляем элементы
 	widgets := make([]layout.Widget, len(tl.names))
 	if !tl.isCls {
@@ -69,14 +73,16 @@ func (tl *Taglist) Layout(gtx layout.Context, th *material.Theme) layout.Dimensi
 				btn := material.CheckBox(th, &tl.pp[i], item)
 				btn.Color = th.Palette.Fg
 				if tl.pp[i].Update(gtx) {
-					tl.ShowTags[i] = tl.pp[i].Value
-					if !tl.ShowTags[i] {
-						delete(tl.ShowTags, i)
+					cfg.Mu.Lock()
+					cfg.ShowTags[i] = tl.pp[i].Value
+					if !cfg.ShowTags[i] {
+						delete(cfg.ShowTags, i)
 					}
-					tl.SelTags = make([]string, 0)
-					for k := range tl.ShowTags {
-						tl.SelTags = append(tl.SelTags, tl.names[k])
+					cfg.ShowTagNames = make([]string, 0)
+					for k := range cfg.ShowTags {
+						cfg.ShowTagNames = append(cfg.ShowTagNames, tl.names[k])
 					}
+					cfg.Mu.Unlock()
 				}
 				if tl.pp[i].Hovered() {
 					btn.Label = item + tl.dscrs[i]
@@ -109,7 +115,7 @@ func (tl *Taglist) DrawPopup(w *app.Window, th *material.Theme, cfg *configs.Con
 			}.Layout(gtx,
 				layout.Rigid(
 					func(gtx C) D {
-						return tl.Layout(gtx, th)
+						return tl.Layout(gtx, th, cfg)
 					},
 				))
 			typ.Frame(gtx.Ops)
@@ -121,7 +127,7 @@ func (tl *Taglist) DrawPopup(w *app.Window, th *material.Theme, cfg *configs.Con
 					}
 				}
 			*/
-			cfg.ShowTagNames = tl.SelTags
+			//cfg.ShowTagNames = tl.SelTags
 			tl.isCls = true
 			return typ.Err
 		}
@@ -134,16 +140,20 @@ func (tl *Taglist) UpdTaglist(d *tagdata.AllTags, cfg *configs.Config) {
 	for _, v := range cfg.ShowTagNames {
 		for i, tag := range d.Tag {
 			if v == tag.Name {
+				cfg.Mu.Lock()
 				cfg.ShowTags[i] = true
+				cfg.Mu.Unlock()
 				break
 			}
 		}
 	}
 
 	tl.pp = make([]widget.Bool, len(d.Tag))
+	cfg.Mu.RLock()
 	for key, v := range cfg.ShowTags {
 		tl.pp[key].Value = v
 	}
+	cfg.Mu.RUnlock()
 
 	tl.names = make([]string, len(d.Tag))
 	tl.dscrs = make([]string, len(d.Tag))
@@ -151,6 +161,6 @@ func (tl *Taglist) UpdTaglist(d *tagdata.AllTags, cfg *configs.Config) {
 		tl.names[i] = d.Tag[i].Name
 		tl.dscrs[i] = " " + d.Tag[i].Dscr + ", " + d.Tag[i].Unit
 	}
-	Diap = int64(len(d.Tm))
+	Diap = int64(len(d.Tt))
 	LastInd = int(Diap) - 66
 }

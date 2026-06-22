@@ -79,15 +79,15 @@ func View(d *tagdata.AllTags, legSel map[string]bool, wTime *time.Time) http.Han
 			line.ExtendYAxis(*newAxis)
 
 			for _, v := range item.Pos {
-				lenShow := len(d.Tag[v].Y)/step - step
+				lenShow := len(d.Tag[v].V)/step - step
 
 				tmShow := make([]string, lenShow)
 				vShow := make([]opts.LineData, lenShow)
 
-				for i := range tmShow { //прореживание
-					if i*step < len(d.Tm) {
-						tmShow[i] = d.Tm[i*step]
-						vShow[i] = d.Tag[v].Y[i*step]
+				for i := range vShow { //прореживание
+					if i*step < len(d.Tag[v].V) {
+						tmShow[i] = d.Tt[i*step].Format("15:04:05.000")
+						vShow[i].Value = d.Tag[v].V[i*step] //[]interface{}{d.Tt[i*step], d.Tag[v].V[i*step]}
 					}
 				}
 
@@ -97,7 +97,7 @@ func View(d *tagdata.AllTags, legSel map[string]bool, wTime *time.Time) http.Han
 
 				line.AddSeries(seriesName, vShow,
 					charts.WithDatasetIndex(v),
-					charts.WithLineChartOpts(opts.LineChart{YAxisIndex: cnt}),
+					charts.WithLineChartOpts(opts.LineChart{YAxisIndex: cnt, XAxisIndex: 0}),
 				)
 
 				legSel[seriesName] = false
@@ -127,6 +127,7 @@ func View(d *tagdata.AllTags, legSel map[string]bool, wTime *time.Time) http.Han
 			charts.WithTitleOpts(opts.Title{Title: "Момент останова:", Subtitle: d.TripTM.Format(time.Stamp), Left: "center"}),
 			charts.WithGridOpts(opts.Grid{Width: "999px"}),
 			charts.WithLegendOpts(opts.Legend{Type: "scroll", Orient: "vertical", X: "right", Selected: legSel}),
+			//charts.WithXAxisOpts(opts.XAxis{Type: "time"}),
 			charts.WithDataZoomOpts(
 				opts.DataZoom{Type: "slider", Orient: "horizontal"},
 				opts.DataZoom{Type: "inside", Orient: "vertical", YAxisIndex: zoomAxis},
@@ -135,6 +136,14 @@ func View(d *tagdata.AllTags, legSel map[string]bool, wTime *time.Time) http.Han
 				Show:           opts.Bool(true),
 				Trigger:        "axis",
 				ValueFormatter: opts.FuncOpts(`(value) => value.toFixed(3)`),
+				/*
+					AxisPointer: &opts.AxisPointer{Label: &opts.Label{
+						Show: opts.Bool(true),
+						Formatter: string(opts.FuncOpts(`function (params) {
+																return echarts.format.formatTime('hh:mm:ss.SSS', params.value);
+															}`)),
+					}},
+				*/
 			}),
 			charts.WithEventListeners(
 				event.Listener{

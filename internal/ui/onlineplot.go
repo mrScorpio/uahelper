@@ -14,12 +14,12 @@ import (
 
 func DrawPlot(d *tagdata.AllTags) error {
 	p := plot.New()
-	last := len(d.Tag[1].Y)
+	last := len(d.Tag[1].V)
 	pts := make(plotter.XYs, 66)
 	j := 0
 	for i := last - 66; i < last; i++ {
 		pts[j].X = float64(j)
-		pts[j].Y = d.Tag[1].Y[i].Value.(float64)
+		pts[j].Y = d.Tag[1].V[i]
 		j++
 	}
 	err := plotutil.AddLinePoints(p, pts)
