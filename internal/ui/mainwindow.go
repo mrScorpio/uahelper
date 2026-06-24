@@ -29,7 +29,8 @@ type D = layout.Dimensions
 
 var (
 	Diap       int64
-	LastInd    int
+	LastInd    int64
+	FstInd     int64
 	Cmd        chan int
 	NewData    chan string
 	DataLoaded chan struct{}
@@ -47,7 +48,7 @@ var (
 
 func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) error {
 	var ops op.Ops
-
+	BufImg = image.NewRGBA(image.Rect(0, 0, 22, 16))
 	myBtn := new(widget.Clickable)
 	brBtn := new(widget.Clickable)
 
@@ -56,9 +57,9 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 	Gogo = true
 
 	diapSld := new(widget.Float)
-	Diap = 6666
-	diapSld.Value = float32(Diap) / 100000
-	var diap float32 = 0.1
+	//Diap = 6666
+	//diapSld.Value = float32(Diap) / 100000
+	var diap float32
 
 	crSld := new(widget.Float)
 	crSld.Value = 1
@@ -85,6 +86,9 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 			if v == 6 {
 				w.Perform(system.ActionClose)
 			}
+			if v == 9 {
+				cfg.WrFile()
+			}
 		}
 	}()
 
@@ -101,7 +105,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 			NewData <- "not found"
 		}
 		<-DataLoaded
-		Diap = int64(len(d.Tt))
+		//LastInd = int64(len(d.Tt) - 1)
 		DrawChart(d, cfg)
 		swUpdPlot.Value = false
 		//time.Sleep(time.Duration(6666) * time.Millisecond)
@@ -112,7 +116,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 	TL = NewTaglist(d, cfg)
 
 	th := material.NewTheme()
-	var lastLen float32 = 0.0
+	lastLen := float32(len(d.Tt) - 1)
 
 	for {
 		evt := w.Event()
@@ -164,11 +168,14 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 				if Gogo {
 					lastLen = float32(len(d.Tt) - 1)
 				}
-				LastInd = int(crSld.Value * lastLen)
+				LastInd = int64(crSld.Value * lastLen)
+				FstInd = int64(diapSld.Value * float32(LastInd))
 				if crSld.Value < 1 {
 					swUpdPlot.Value = false
 				}
-				DrawChart(d, cfg)
+				if !Gogo {
+					DrawChart(d, cfg)
+				}
 			}
 
 			//ops.Reset()
@@ -224,7 +231,8 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 			}
 
 			if diapSld.Dragging() {
-				Diap = int64(diapSld.Value * 100000)
+				//Diap = int64(diapSld.Value * 100000)
+				FstInd = int64(diapSld.Value * float32(LastInd))
 				ScAuto = true
 				if !Gogo {
 					DrawChart(d, cfg)
@@ -364,7 +372,6 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 											return margins.Layout(gtx,
 												func(gtx C) D {
 													sld := material.Slider(th, crSld)
-
 													return sld.Layout(gtx)
 												},
 											)

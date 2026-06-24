@@ -21,18 +21,37 @@ func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
 		TagLegend = make([]string, 0)
 	}
 	d.Mu.RLock()
+	//minInd := len(d.Tt) - 1
+	if Gogo {
+		LastInd = int64(len(d.Tt) - 1)
+	}
+	Diap = LastInd - FstInd
 
-	minInd := len(d.Tt) - 1
+	if Diap < 1 {
+		d.Mu.RUnlock()
+		BufImg = image.NewRGBA(image.Rect(0, 0, 22, 16))
+		Cmd <- 1
+		return nil
+	}
+
 	for key, v := range cfg.ShowTags {
 		if v {
-			values[i] = make([]float64, Diap)
+			values[i] = make([]float64, ChartW)
+			if len(d.Tag[key].V) < 6 {
+				d.Mu.RUnlock()
+
+				Cmd <- 1
+				return nil
+			}
 			if len(TagOrder) != len(cfg.ShowTags) {
 				TagOrder[key] = i
 				TagLegend = append(TagLegend, d.Tag[key].Name)
 			}
-			if len(d.Tag[key].V) < minInd+1 {
-				minInd = len(d.Tag[key].V) - 1
-			}
+			/*
+				if len(d.Tag[key].V) < minInd+1 {
+					minInd = len(d.Tag[key].V) - 1
+				}
+			*/
 			if ScAuto {
 				if d.Tag[key].Max > ScMax {
 					ScMax = d.Tag[key].Max
@@ -45,26 +64,31 @@ func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
 		}
 	}
 
-	tm := make([]string, Diap)
-	if Gogo {
-		LastInd = minInd
-	}
+	tm := make([]string, ChartW)
 	j := LastInd
-	if j > 0 {
-		cfg.Mu.RLock()
-		for i := Diap - 1; i >= 0; i-- {
-			tm[i] = d.Tt[j].Format("15:04:05")
-			for key, v := range cfg.ShowTags {
-				if v {
-					values[TagOrder[key]][i] = d.Tag[key].V[j]
+	//if j > 0 {
+	//prev := make(map[int]float64)
+	cfg.Mu.Lock()
+	for i := ChartW - 1; i >= 0; i-- {
+
+		for key, v := range cfg.ShowTags {
+			if v {
+				if j > int64(len(d.Tag[key].V)-1) {
+					j = int64(len(d.Tag[key].V) - 1)
 				}
-			}
-			if j > 0 {
-				j--
+				values[TagOrder[key]][i] = d.Tag[key].V[j]
 			}
 		}
-		cfg.Mu.RUnlock()
+		tm[i] = d.Tt[j].Format("15:04:05")
+		if j > FstInd {
+			j -= Diap / int64(ChartW)
+		}
+		if j < 0 {
+			j = 0
+		}
 	}
+	cfg.Mu.Unlock()
+	//}
 	d.Mu.RUnlock()
 	p, err := vcharts.LineRender(
 		values,

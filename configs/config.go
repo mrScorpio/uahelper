@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/joho/godotenv"
+	"github.com/mrscorpio/uahelper/internal/tagdata"
 )
 
 type Config struct {
@@ -128,4 +129,19 @@ func (c *Config) WrFile() error {
 		return err
 	}
 	return nil
+}
+
+func (c *Config) UpdTagMap(d *tagdata.AllTags) {
+	d.Mu.RLock()
+	defer d.Mu.RUnlock()
+	for _, v := range c.ShowTagNames {
+		c.Mu.Lock()
+		for i, tag := range d.Tag {
+			if v == tag.Name {
+				c.ShowTags[i] = true
+				break
+			}
+		}
+		c.Mu.Unlock()
+	}
 }

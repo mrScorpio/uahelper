@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -46,5 +47,8 @@ func HttPath(d *tagdata.AllTags, cfg *configs.Config, ipaddr string) string {
 			commaTags += d.Tag[k].Name
 		}
 	}
-	return "http://" + ipaddr + cfg.TrPort + "/?show=" + commaTags + "&zoom=" + d.TripTag + "&step=10"
+	return "http://" + ipaddr + cfg.TrPort +
+		"/?show=" + commaTags + "&zoom=" + d.TripTag +
+		"&begin=" + fmt.Sprint(FstInd) + "&end=" + fmt.Sprint(LastInd) +
+		"&step=" + fmt.Sprint((LastInd-FstInd)/1000)
 }

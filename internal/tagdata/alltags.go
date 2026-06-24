@@ -104,31 +104,35 @@ func (at *AllTags) AddV(i int, v float64) {
 func (at *AllTags) Clean() {
 	at.Mu.Lock()
 	for i := range at.Tag {
-		//at.Tag[i].T = make([]string, 0, 6666)
-		//at.Tag[i].Y = make([]opts.LineData, 0, 6666)
-		at.Tag[i].V = make([]float64, 0, 6666)
+		//at.Tag[i].V = make([]float64, 0, 6666)
+		if len(at.Tag[i].V) > 9999 {
+			at.Tag[i].V = at.Tag[i].V[len(at.Tag[i].V)-9999:]
+		}
 	}
-	//at.Tm = make([]string, 0, 6666)
-	at.Tt = make([]time.Time, 0, 6666)
+	//at.Tt = make([]time.Time, 0, 6666)
+	if len(at.Tt) > 9999 {
+		at.Tt = at.Tt[len(at.Tt)-9999:]
+	}
 	at.Mu.Unlock()
 }
 
-func (at *AllTags) AddT(newT time.Time) {
+func (at *AllTags) AddT(newT time.Time, w bool) bool {
+	cut := false
 	at.Mu.Lock()
 	defer at.Mu.Unlock()
 	at.Tt = append(at.Tt, newT)
-	if newT.Sub(at.Tt[0]) > time.Duration(66*time.Minute) {
+	if newT.Sub(at.Tt[0]) > time.Duration(6*time.Minute) && !w {
 		for i := range at.Tag {
-			n := len(at.Tag[i].V)
-			//c := cap(at.Tag[i].Y)
-			//at.Tag[i].Y = at.Tag[i].Y[666 : n-1]
-			at.Tag[i].V = at.Tag[i].V[666 : n-1]
+			if len(at.Tag[i].V) > 666 {
+				at.Tag[i].V = at.Tag[i].V[666:]
+			}
 		}
-		nt := len(at.Tt)
-		//ct := cap(at.Tm)
-		//at.Tm = at.Tm[666 : nt-1]
-		at.Tt = at.Tt[666 : nt-1]
+		if len(at.Tt) > 666 {
+			at.Tt = at.Tt[666:]
+			cut = true
+		}
 	}
+	return cut
 }
 
 func (d *AllTags) ReadOpcTagList(ctx context.Context, cl []*opcua.Client) error {

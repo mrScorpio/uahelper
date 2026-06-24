@@ -42,10 +42,6 @@ func main() {
 	ui.Gogo = true
 
 	cfg := configs.LoadConfig()
-	err := cfg.WrFile()
-	if err != nil {
-		log.Println(err)
-	}
 
 	arhDirName := "arh/" //папка для хранения файлов
 
@@ -122,6 +118,12 @@ func main() {
 			log.Println(err)
 		}
 
+		cfg.UpdTagMap(d)
+		err = cfg.WrFile()
+		if err != nil {
+			log.Println(err)
+		}
+
 		spin := false // тэг для фиксации факта наличия вращения
 		fire := false // тэг для фиксации момента розжига
 
@@ -190,7 +192,14 @@ func main() {
 
 					}
 					//if newTm != crTm {
-					d.AddT(newTm)
+					if d.AddT(newTm, spin) && !ui.Gogo && !MdRd {
+						if ui.LastInd > 666 {
+							ui.LastInd -= 666
+						}
+						if ui.FstInd > 666 {
+							ui.FstInd -= 666
+						}
+					}
 					//}
 					time.Sleep(time.Duration(d.MinCycle) * time.Millisecond) // ждем время минимального цикла
 				}
@@ -212,6 +221,10 @@ func main() {
 			for {
 				select {
 				case <-ctx.Done():
+					err := repository.SaveJson(d, arhDirName, time.Now())
+					if err != nil {
+						log.Println(err)
+					}
 					log.Println("file process stopped")
 					ui.Cmd <- 6
 					return
@@ -223,7 +236,7 @@ func main() {
 					// момент запуска с очисткой данных
 					if !spin && curRpm > 666.666 {
 						spin = true
-						//d.Clean()
+						d.Clean()
 						d.TripTM = time.Now().Add(time.Duration(66666) * time.Hour) // типа трип когда-то случится
 						d.TripTag = "X3"
 						mes := "раскрутка, смотреть на ingcgt.ru"
@@ -253,8 +266,6 @@ func main() {
 					}
 					// момент останова с записью файла и отправкой через бота
 					if spin && curRpm < 6.6 {
-						spin = false
-						fire = false
 						buf, filename, err := repository.StoreData(d, arhDirName, false)
 						if err != nil {
 							log.Println(err)
@@ -281,6 +292,8 @@ func main() {
 								}
 							}
 						}
+						spin = false
+						fire = false
 					}
 					if len(cl) > 1 {
 						if cl[1] != nil {
@@ -350,19 +363,24 @@ func main() {
 
 					} else {
 						// пишем данные в джисон-файл по тикеру
-						d.Mu.RLock()
-						data, err := json.Marshal(d)
-						d.Mu.RUnlock()
+						err := repository.SaveJson(d, arhDirName, nowT)
 						if err != nil {
 							log.Println(err)
-						} else {
-							filename := arhDirName + nowT.Format("20060102_15") + ".json"
-							err = os.WriteFile(filename, data, 0755)
+						}
+						/*
+							d.Mu.RLock()
+							data, err := json.Marshal(d)
+							d.Mu.RUnlock()
 							if err != nil {
 								log.Println(err)
+							} else {
+								filename := arhDirName + nowT.Format("20060102_15") + ".json"
+								err = os.WriteFile(filename, data, 0755)
+								if err != nil {
+									log.Println(err)
+								}
 							}
-						}
-
+						*/
 					}
 
 				default:
@@ -372,8 +390,7 @@ func main() {
 							log.Println(err)
 						}
 					}
-					time.Sleep(time.Duration(999) * time.Millisecond)
-
+					time.Sleep(time.Duration(20) * time.Millisecond)
 				}
 			}
 		}()

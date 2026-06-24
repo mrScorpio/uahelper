@@ -83,6 +83,7 @@ func (tl *Taglist) Layout(gtx layout.Context, th *material.Theme, cfg *configs.C
 						cfg.ShowTagNames = append(cfg.ShowTagNames, tl.names[k])
 					}
 					cfg.Mu.Unlock()
+					Cmd <- 9
 				}
 				if tl.pp[i].Hovered() {
 					btn.Label = item + tl.dscrs[i]
@@ -99,7 +100,7 @@ func (tl *Taglist) Layout(gtx layout.Context, th *material.Theme, cfg *configs.C
 
 func (tl *Taglist) DrawPopup(w *app.Window, th *material.Theme, cfg *configs.Config) error {
 	var ops op.Ops
-	defer cfg.WrFile()
+	//defer cfg.WrFile()
 	tl.isCls = false
 
 	for {
@@ -135,18 +136,7 @@ func (tl *Taglist) DrawPopup(w *app.Window, th *material.Theme, cfg *configs.Con
 }
 
 func (tl *Taglist) UpdTaglist(d *tagdata.AllTags, cfg *configs.Config) {
-	d.Mu.RLock()
-	defer d.Mu.RUnlock()
-	for _, v := range cfg.ShowTagNames {
-		for i, tag := range d.Tag {
-			if v == tag.Name {
-				cfg.Mu.Lock()
-				cfg.ShowTags[i] = true
-				cfg.Mu.Unlock()
-				break
-			}
-		}
-	}
+	cfg.UpdTagMap(d)
 
 	tl.pp = make([]widget.Bool, len(d.Tag))
 	cfg.Mu.RLock()
@@ -162,5 +152,5 @@ func (tl *Taglist) UpdTaglist(d *tagdata.AllTags, cfg *configs.Config) {
 		tl.dscrs[i] = " " + d.Tag[i].Dscr + ", " + d.Tag[i].Unit
 	}
 	Diap = int64(len(d.Tt))
-	LastInd = int(Diap) - 66
+	LastInd = Diap
 }

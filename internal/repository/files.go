@@ -104,3 +104,18 @@ func ReadStored(d *tagdata.AllTags, filename string) (time.Time, error) {
 	}
 	return tm, nil
 }
+
+func SaveJson(d *tagdata.AllTags, arhDirName string, nowT time.Time) error {
+	d.Mu.RLock()
+	data, err := json.Marshal(d)
+	d.Mu.RUnlock()
+	if err != nil {
+		return err
+	}
+	filename := arhDirName + nowT.Format("20060102_15") + ".json"
+	err = os.WriteFile(filename, data, 0755)
+	if err != nil {
+		return err
+	}
+	return nil
+}

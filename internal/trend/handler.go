@@ -22,9 +22,18 @@ func View(d *tagdata.AllTags, legSel map[string]bool, wTime *time.Time) http.Han
 		chsdTags := strings.Split(req.URL.Query().Get("show"), ",")
 		tag2 := strings.Split(req.URL.Query().Get("zoom"), ",")
 		step, err := strconv.Atoi(req.URL.Query().Get("step"))
-		if err != nil {
+		if err != nil || step < 1 {
 			step = 1
 		}
+		bgn, err := strconv.Atoi(req.URL.Query().Get("begin"))
+		if err != nil || bgn < 1 {
+			bgn = 0
+		}
+		end, err := strconv.Atoi(req.URL.Query().Get("end"))
+		if err != nil || end < 1 {
+			end = len(d.Tt) - 1
+		}
+		diap := end - bgn
 
 		cnt := 1
 		lcnt := 0
@@ -79,15 +88,15 @@ func View(d *tagdata.AllTags, legSel map[string]bool, wTime *time.Time) http.Han
 			line.ExtendYAxis(*newAxis)
 
 			for _, v := range item.Pos {
-				lenShow := len(d.Tag[v].V)/step - step
+				lenShow := diap/step - step
 
 				tmShow := make([]string, lenShow)
 				vShow := make([]opts.LineData, lenShow)
 
 				for i := range vShow { //прореживание
 					if i*step < len(d.Tag[v].V) {
-						tmShow[i] = d.Tt[i*step].Format("15:04:05.000")
-						vShow[i].Value = d.Tag[v].V[i*step] //[]interface{}{d.Tt[i*step], d.Tag[v].V[i*step]}
+						tmShow[i] = d.Tt[bgn+i*step].Format("15:04:05.000")
+						vShow[i].Value = d.Tag[v].V[bgn+i*step] //[]interface{}{d.Tt[i*step], d.Tag[v].V[i*step]}
 					}
 				}
 
