@@ -4,22 +4,30 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/mrscorpio/uahelper/configs"
+	"github.com/mrscorpio/uahelper/internal/repository"
 	"github.com/mrscorpio/uahelper/internal/tagdata"
 	vcharts "github.com/vicanso/go-charts/v2"
 )
 
-func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
+func DrawChart(cfg *configs.Config) error {
+	Mu.RLock()
+	d := TrendData[*PrevHour]
+	Mu.RUnlock()
 	values := make([][]float64, len(cfg.ShowTags))
 	//legend := make([]string, 0)
 	i := 0
 	//order := make(map[int]int)
-
+	Mu.Lock()
 	if len(TagOrder) != len(cfg.ShowTags) {
 		TagOrder = make(map[int]int)
 		TagLegend = make([]string, 0)
 	}
+	Mu.Unlock()
 	d.Mu.RLock()
 	//minInd := len(d.Tt) - 1
 	if Gogo {
@@ -34,19 +42,23 @@ func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
 		return nil
 	}
 
+	numPoints := ChartW
+
 	for key, v := range cfg.ShowTags {
 		if v {
-			values[i] = make([]float64, ChartW)
+			values[i] = make([]float64, numPoints)
 			if len(d.Tag[key].V) < 6 {
 				d.Mu.RUnlock()
 
 				Cmd <- 1
 				return nil
 			}
+			Mu.Lock()
 			if len(TagOrder) != len(cfg.ShowTags) {
 				TagOrder[key] = i
 				TagLegend = append(TagLegend, d.Tag[key].Name)
 			}
+			Mu.Unlock()
 			/*
 				if len(d.Tag[key].V) < minInd+1 {
 					minInd = len(d.Tag[key].V) - 1
@@ -64,24 +76,26 @@ func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
 		}
 	}
 
-	tm := make([]string, ChartW)
+	tm := make([]string, numPoints)
 	j := LastInd
 	//if j > 0 {
 	//prev := make(map[int]float64)
 	cfg.Mu.Lock()
-	for i := ChartW - 1; i >= 0; i-- {
+	for i := numPoints - 1; i >= 0; i-- {
 
 		for key, v := range cfg.ShowTags {
 			if v {
 				if j > int64(len(d.Tag[key].V)-1) {
 					j = int64(len(d.Tag[key].V) - 1)
 				}
+				Mu.RLock()
 				values[TagOrder[key]][i] = d.Tag[key].V[j]
+				Mu.RUnlock()
 			}
 		}
 		tm[i] = d.Tt[j].Format("15:04:05")
 		if j > FstInd {
-			j -= Diap / int64(ChartW)
+			j -= Diap / int64(numPoints)
 		}
 		if j < 0 {
 			j = 0
@@ -90,6 +104,7 @@ func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
 	cfg.Mu.Unlock()
 	//}
 	d.Mu.RUnlock()
+
 	p, err := vcharts.LineRender(
 		values,
 		vcharts.XAxisDataOptionFunc(tm),
@@ -106,6 +121,7 @@ func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
 			opt.Width = ChartW
 			opt.YAxisOptions[0].Max = &ScMax
 			opt.YAxisOptions[0].Min = &ScMin
+			//opt.SeriesList[0].Label = vcharts.SeriesLabel{Formatter: "{c}", Show: *vcharts.TrueFlag()}
 			opt.ValueFormatter = func(f float64) string {
 				return fmt.Sprintf("%.3f", f)
 			}
@@ -135,4 +151,55 @@ func DrawChart(d *tagdata.AllTags, cfg *configs.Config) error {
 	Cmd <- 1
 
 	return nil
+}
+
+func ShowHour(cfg *configs.Config) (bool, error) {
+	fl, err := os.ReadDir("arh")
+	gogo := true
+	if err != nil {
+		return gogo, err
+	}
+
+	for i := range fl {
+		inf, err := fl[len(fl)-1-i].Info()
+		if err != nil {
+			continue
+		}
+		if *PrevHour == 0 {
+			break
+		}
+		if !strings.HasSuffix(inf.Name(), ".json") {
+			res := strings.Split(inf.Name(), "_")
+			if len(res) != 2 {
+				continue
+			}
+			fileHour, err := strconv.Atoi(res[1])
+			if err != nil {
+				continue
+			}
+			if *PrevHour == -1 {
+				FstHour = fileHour
+			}
+			if fileHour == FstHour+1+*PrevHour {
+				if TrendData[*PrevHour] == nil {
+					Mu.Lock()
+					TrendData[*PrevHour] = new(tagdata.AllTags)
+					_, err := repository.ReadStored(TrendData[*PrevHour], "arh/"+inf.Name())
+					Mu.Unlock()
+					if err != nil {
+						return gogo, err
+					}
+				}
+				err = DrawChart(cfg)
+				if err != nil {
+					return gogo, err
+				}
+				gogo = false
+
+				return gogo, nil
+			}
+		}
+	}
+	*PrevHour = 0
+	return gogo, nil
 }

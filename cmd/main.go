@@ -39,7 +39,7 @@ func main() {
 
 	ui.NewData = make(chan string) //канал для передачи имени файла от уи в бэкенд
 	ui.Cmd = make(chan int)
-	ui.Gogo = true
+	//ui.Gogo = true
 
 	cfg := configs.LoadConfig()
 
@@ -225,6 +225,12 @@ func main() {
 					if err != nil {
 						log.Println(err)
 					}
+					/*
+						_, _, err = repository.StoreData(d, arhDirName, true)
+						if err != nil {
+							log.Println(err)
+						}
+					*/
 					log.Println("file process stopped")
 					ui.Cmd <- 6
 					return
@@ -340,26 +346,7 @@ func main() {
 						} /*else {	!больше не чистим!
 							d.Clean()
 						}*/
-						//check arch send
-						/*
-							if b != nil {
-								err = b.SendArh(buf, filename)
-								if err != nil {
-									log.Println(err)
-								}
-							}
-							if vkb != nil {
-								toSend, err := os.OpenFile(arhDirName+filename, os.O_RDONLY, 0755)
-								if err != nil {
-									log.Println(err)
-								} else {
-									err := vkb.B.NewFileMessage(cfg.VkChat, toSend).Send()
-									if err != nil {
-										log.Println(err)
-									}
-								}
-							}
-						*/
+						ui.CrearHoursData()
 
 					} else {
 						// пишем данные в джисон-файл по тикеру
@@ -385,7 +372,7 @@ func main() {
 
 				default:
 					if ui.Gogo {
-						err := ui.DrawChart(d, cfg)
+						err := ui.DrawChart(cfg)
 						if err != nil {
 							log.Println(err)
 						}
@@ -395,44 +382,6 @@ func main() {
 			}
 		}()
 	}
-
-	// хттп-сервер для отображения трендов
-	srv := http.Server{
-		Addr:    cfg.TrPort,
-		Handler: mux,
-	}
-	stopSrvSig := make(chan struct{}) //сигнал остановки сервера
-
-	wg.Add(1)
-	// рутина для отслеживания сигнала остановки сервера
-	go func() {
-		defer wg.Done()
-		mes := "логер остановлен"
-		if vkb != nil {
-			defer vkb.B.NewTextMessage(cfg.VkBossId, mes).Send()
-		}
-		if b != nil {
-			defer b.SendToBoss(mes)
-		}
-		<-stopSrvSig
-		err := srv.Shutdown(ctx)
-		if err != nil {
-			log.Println(err)
-		}
-	}()
-
-	wg.Add(1)
-	// рутина с сервером
-	go func() {
-		defer wg.Done()
-
-		mux.Handle("/", trend.View(d, legSel, &wTime))
-		err := srv.ListenAndServe()
-		if err != nil {
-			log.Println(err)
-		}
-
-	}()
 
 	if MdRd {
 		ui.BufImg = image.NewRGBA(image.Rect(0, 0, 22, 16))
@@ -451,6 +400,13 @@ func main() {
 			}
 		}()
 	}
+
+	// хттп-сервер для отображения трендов
+	srv := http.Server{
+		Addr:    cfg.TrPort,
+		Handler: mux,
+	}
+	stopSrvSig := make(chan struct{}) //сигнал остановки сервера
 
 	wg.Add(1)
 	go func() {
@@ -485,6 +441,37 @@ func main() {
 	go app.Main()
 
 	conn, err := net.Dial("tcp", "ya.ru:80")
+
+	wg.Add(1)
+	// рутина для отслеживания сигнала остановки сервера
+	go func() {
+		defer wg.Done()
+		mes := "логер остановлен"
+		if vkb != nil {
+			defer vkb.B.NewTextMessage(cfg.VkBossId, mes).Send()
+		}
+		if b != nil {
+			defer b.SendToBoss(mes)
+		}
+		<-stopSrvSig
+		err := srv.Shutdown(ctx)
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+
+	wg.Add(1)
+	// рутина с сервером
+	go func() {
+		defer wg.Done()
+
+		mux.Handle("/", trend.View(ui.TrendData, ui.PrevHour, legSel, &wTime))
+		err := srv.ListenAndServe()
+		if err != nil {
+			log.Println(err)
+		}
+
+	}()
 
 	if err != nil {
 		log.Println(err)

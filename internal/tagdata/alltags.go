@@ -105,13 +105,13 @@ func (at *AllTags) Clean() {
 	at.Mu.Lock()
 	for i := range at.Tag {
 		//at.Tag[i].V = make([]float64, 0, 6666)
-		if len(at.Tag[i].V) > 9999 {
-			at.Tag[i].V = at.Tag[i].V[len(at.Tag[i].V)-9999:]
+		if len(at.Tag[i].V) > 22222 {
+			at.Tag[i].V = at.Tag[i].V[len(at.Tag[i].V)-22222:]
 		}
 	}
 	//at.Tt = make([]time.Time, 0, 6666)
-	if len(at.Tt) > 9999 {
-		at.Tt = at.Tt[len(at.Tt)-9999:]
+	if len(at.Tt) > 22222 {
+		at.Tt = at.Tt[len(at.Tt)-22222:]
 	}
 	at.Mu.Unlock()
 }
@@ -121,7 +121,7 @@ func (at *AllTags) AddT(newT time.Time, w bool) bool {
 	at.Mu.Lock()
 	defer at.Mu.Unlock()
 	at.Tt = append(at.Tt, newT)
-	if newT.Sub(at.Tt[0]) > time.Duration(6*time.Minute) && !w {
+	if newT.Sub(at.Tt[0]) > time.Duration(66*time.Minute) && !w {
 		for i := range at.Tag {
 			if len(at.Tag[i].V) > 666 {
 				at.Tag[i].V = at.Tag[i].V[666:]

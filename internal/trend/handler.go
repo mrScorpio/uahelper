@@ -14,9 +14,9 @@ import (
 )
 
 // хэндлер для отрисовки трендов
-func View(d *tagdata.AllTags, legSel map[string]bool, wTime *time.Time) http.HandlerFunc {
+func View(md map[int]*tagdata.AllTags, ind *int, legSel map[string]bool, wTime *time.Time) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-
+		d := md[*ind]
 		line := charts.NewLine()
 
 		chsdTags := strings.Split(req.URL.Query().Get("show"), ",")
@@ -41,7 +41,7 @@ func View(d *tagdata.AllTags, legSel map[string]bool, wTime *time.Time) http.Han
 		zoomAxis := 1
 		cmpUnit := ""
 		var newAxis *opts.YAxis
-
+		d.Mu.RLock()
 		for key, item := range d.Unit {
 
 			newAxis = &opts.YAxis{
@@ -123,6 +123,7 @@ func View(d *tagdata.AllTags, legSel map[string]bool, wTime *time.Time) http.Han
 				}
 			}
 		}
+		d.Mu.RUnlock()
 
 		clickHandler := `(params) => alert(params.seriesIndex)`
 

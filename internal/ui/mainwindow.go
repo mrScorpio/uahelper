@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 
 	"gioui.org/app"
 	"gioui.org/io/event"
@@ -44,13 +45,25 @@ var (
 	TagOrder   map[int]int
 	TagLegend  []string
 	TL         *Taglist
+	TrendData  map[int]*tagdata.AllTags
+	PrevHour   *int
+	FstHour    int
+	Mu         sync.RWMutex
 )
 
 func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) error {
 	var ops op.Ops
+	prHr := 0
+	PrevHour = &prHr
+	Mu.Lock()
+	TrendData = make(map[int]*tagdata.AllTags)
+	TrendData[*PrevHour] = d
+	Mu.Unlock()
 	BufImg = image.NewRGBA(image.Rect(0, 0, 22, 16))
 	myBtn := new(widget.Clickable)
 	brBtn := new(widget.Clickable)
+	prevHourBtn := new(widget.Clickable)
+	nextHourBtn := new(widget.Clickable)
 
 	swUpdPlot := new(widget.Bool)
 	swUpdPlot.Value = true
@@ -106,7 +119,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 		}
 		<-DataLoaded
 		//LastInd = int64(len(d.Tt) - 1)
-		DrawChart(d, cfg)
+		DrawChart(cfg)
 		swUpdPlot.Value = false
 		//time.Sleep(time.Duration(6666) * time.Millisecond)
 	}
@@ -135,6 +148,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 				d.Mu.RLock()
 				lastLen = float32(len(d.Tt) - 1)
 				d.Mu.RUnlock()
+				*PrevHour = 0
 			}
 			if myBtn.Clicked(gtx) {
 				if TL.isCls {
@@ -152,6 +166,10 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 						//wTags.Perform(system.ActionClose)
 					}()
 				}
+
+				if err != nil {
+					log.Println(err)
+				}
 			}
 			if brBtn.Clicked(gtx) {
 				if cfg.RdMd {
@@ -163,10 +181,23 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 					log.Println(err)
 				}
 			}
+			if prevHourBtn.Clicked(gtx) {
+				*PrevHour--
+				swUpdPlot.Value, err = ShowHour(cfg)
+			}
+			if nextHourBtn.Clicked(gtx) {
+				if *PrevHour < 0 {
+					*PrevHour++
+				}
+				swUpdPlot.Value, err = ShowHour(cfg)
+			}
 
 			if crSld.Dragging() {
 				if Gogo {
 					lastLen = float32(len(d.Tt) - 1)
+				}
+				if *PrevHour < 0 {
+					lastLen = float32(len(TrendData[*PrevHour].Tt) - 1)
 				}
 				LastInd = int64(crSld.Value * lastLen)
 				FstInd = int64(diapSld.Value * float32(LastInd))
@@ -174,7 +205,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 					swUpdPlot.Value = false
 				}
 				if !Gogo {
-					DrawChart(d, cfg)
+					DrawChart(cfg)
 				}
 			}
 
@@ -213,7 +244,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 					maxInp.SetCaret(0, 2)
 				}
 				if !Gogo {
-					DrawChart(d, cfg)
+					DrawChart(cfg)
 				}
 			}
 
@@ -226,7 +257,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 					minInp.SetCaret(0, 2)
 				}
 				if !Gogo {
-					DrawChart(d, cfg)
+					DrawChart(cfg)
 				}
 			}
 
@@ -235,7 +266,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 				FstInd = int64(diapSld.Value * float32(LastInd))
 				ScAuto = true
 				if !Gogo {
-					DrawChart(d, cfg)
+					DrawChart(cfg)
 				}
 			}
 
@@ -485,6 +516,39 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 											)
 										},
 									),
+
+									layout.Rigid(
+										func(gtx C) D {
+											margins := layout.Inset{
+												Top:    unit.Dp(1),
+												Bottom: unit.Dp(1),
+												Left:   unit.Dp(6),
+												Right:  unit.Dp(6),
+											}
+											return margins.Layout(gtx,
+												func(gtx C) D {
+													btn := material.Button(th, prevHourBtn, "<")
+													return btn.Layout(gtx)
+												},
+											)
+										},
+									),
+									layout.Rigid(
+										func(gtx C) D {
+											margins := layout.Inset{
+												Top:    unit.Dp(1),
+												Bottom: unit.Dp(1),
+												Left:   unit.Dp(6),
+												Right:  unit.Dp(6),
+											}
+											return margins.Layout(gtx,
+												func(gtx C) D {
+													btn := material.Button(th, nextHourBtn, ">")
+													return btn.Layout(gtx)
+												},
+											)
+										},
+									),
 								)
 
 							},
@@ -499,9 +563,20 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 			return typ.Err
 		case app.ConfigEvent:
 			if !Gogo {
-				DrawChart(d, cfg)
+				DrawChart(cfg)
 			}
 		}
 
+	}
+}
+
+func CrearHoursData() {
+	Mu.Lock()
+	defer Mu.Unlock()
+	*PrevHour = 0
+	for key := range TrendData {
+		if key != 0 {
+			delete(TrendData, key)
+		}
 	}
 }
