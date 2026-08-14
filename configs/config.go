@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/joho/godotenv"
-	"github.com/mrscorpio/uahelper/internal/tagdata"
+	"github.com/mrscorpio/uahelper/pkg/tagdata"
 )
 
 type Config struct {
@@ -28,6 +28,7 @@ type Config struct {
 	UaUser       string
 	UaPass       string
 	BrPath       string
+	NatsAddr     string
 	ShowTags     map[int]bool
 	ShowTagNames []string
 	Mu           sync.RWMutex `json:"-"`
@@ -59,6 +60,7 @@ func LoadConfig() *Config {
 			UaUser:       "",
 			UaPass:       "",
 			BrPath:       "c:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+			NatsAddr:     "localhost:4222",
 			ShowTags:     showTags,
 			ShowTagNames: showTagNames,
 		}
@@ -95,6 +97,7 @@ func LoadConfig() *Config {
 	uaUser := os.Getenv("UAUSER")
 	uaPass := os.Getenv("UAPASS")
 	brPath := os.Getenv("BRPATH")
+	natsAddr := os.Getenv("NATS")
 	return &Config{
 		Endpoint:     os.Getenv("EP"),
 		Bot:          bot,
@@ -112,6 +115,7 @@ func LoadConfig() *Config {
 		UaUser:       uaUser,
 		UaPass:       uaPass,
 		BrPath:       brPath,
+		NatsAddr:     natsAddr,
 		ShowTags:     showTags,
 		ShowTagNames: showTagNames,
 	}

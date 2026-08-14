@@ -10,7 +10,7 @@ import (
 
 	"github.com/mrscorpio/uahelper/configs"
 	"github.com/mrscorpio/uahelper/internal/repository"
-	"github.com/mrscorpio/uahelper/internal/tagdata"
+	"github.com/mrscorpio/uahelper/pkg/tagdata"
 	vcharts "github.com/vicanso/go-charts/v2"
 )
 
@@ -89,7 +89,7 @@ func DrawChart(cfg *configs.Config) error {
 					j = int64(len(d.Tag[key].V) - 1)
 				}
 				Mu.RLock()
-				values[TagOrder[key]][i] = d.Tag[key].V[j]
+				values[TagOrder[key]][i] = float64(d.Tag[key].V[j])
 				Mu.RUnlock()
 			}
 		}
@@ -105,6 +105,9 @@ func DrawChart(cfg *configs.Config) error {
 	//}
 	d.Mu.RUnlock()
 
+	scMax := float64(ScMax)
+	scMin := float64(ScMin)
+
 	p, err := vcharts.LineRender(
 		values,
 		vcharts.XAxisDataOptionFunc(tm),
@@ -119,8 +122,8 @@ func DrawChart(cfg *configs.Config) error {
 
 			opt.Height = ChartH
 			opt.Width = ChartW
-			opt.YAxisOptions[0].Max = &ScMax
-			opt.YAxisOptions[0].Min = &ScMin
+			opt.YAxisOptions[0].Max = &scMax
+			opt.YAxisOptions[0].Min = &scMin
 			//opt.SeriesList[0].Label = vcharts.SeriesLabel{Formatter: "{c}", Show: *vcharts.TrueFlag()}
 			opt.ValueFormatter = func(f float64) string {
 				return fmt.Sprintf("%.3f", f)

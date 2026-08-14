@@ -16,8 +16,8 @@ import (
 
 type UnitData struct {
 	Pos []int
-	Max float64
-	Min float64
+	Max float32
+	Min float32
 }
 
 func NewUnit() *UnitData {
@@ -47,7 +47,7 @@ func (at *AllTags) NewTag(name string, dscr string, cycle int) *TagData {
 	}
 	//t := make([]string, 0, 6)
 	//y := make([]opts.LineData, 0, 6666)
-	v := make([]float64, 0, 6666)
+	v := make([]float32, 0, 6666)
 	at.Descr[name] = dscr
 	at.Mu.Lock()
 	defer at.Mu.Unlock()
@@ -61,7 +61,7 @@ func (at *AllTags) NewTag(name string, dscr string, cycle int) *TagData {
 	}
 }
 
-func (at *AllTags) AddV(i int, v float64) {
+func (at *AllTags) AddV(i int, v float32) {
 	if v > 66666.66666 {
 		v = 0.0
 	}
@@ -156,14 +156,14 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl []*opcua.Client) error 
 	maxCycle := 6
 	i := 0
 
-	preTag := "ns=1;s=REGUL_R500."
-	postTag := ".VALUE"
+	preTag := "ns=1;s=APPLICATION."
+	postTag := ".OUT.VALUE"
 
 	if len(cl) > 1 {
 		if cl[1] != nil {
 			if cl[1].State() == opcua.Connected {
-				preTag = "ns=2;s=Application."
-				postTag = ".OUT.VALUE"
+				preTag = "ns=2;s=APPLICATION."
+				postTag = ".VALUE"
 			}
 		}
 	}
@@ -209,13 +209,13 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl []*opcua.Client) error 
 
 	for i, v := range tagname {
 
-		id[i], err = ua.ParseNodeID("ns=1;s=REGUL_R500." + v + ".VALUE")
+		id[i], err = ua.ParseNodeID("ns=1;s=APPLICATION." + v)
 		if err != nil {
 			log.Fatalf("invalid node id: %v", err)
 			return err
 		}
 
-		uid[i], err = ua.ParseNodeID("ns=1;s=REGUL_R500." + v + ".EU")
+		uid[i], err = ua.ParseNodeID("ns=1;s=APPLICATION." + v + ".OUT.VALUE.100")
 		if err != nil {
 			log.Fatalf("invalid node id: %v", err)
 			return err
@@ -225,7 +225,7 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl []*opcua.Client) error 
 			node[i] = cl[0].Node(id[i])
 			descr, err := node[i].Description(ctx)
 			if err != nil {
-				log.Fatal(err)
+				log.Fatalf("try read node %s: %v", id[i], err)
 				return err
 			}
 
@@ -258,7 +258,7 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl []*opcua.Client) error 
 		d.Unit = make(map[string]*UnitData)
 
 		for i, v := range resp.Results {
-			key := v.Value.Value().(string)
+			key := v.Value.String()
 			if key == "°С" {
 				key = "°C"
 			}
@@ -287,4 +287,8 @@ func (at *AllTags) ChangeId() error {
 		}
 	}
 	return nil
+}
+
+func (at *AllTags) GetTagNum() int {
+	return len(at.Tag)
 }

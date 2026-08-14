@@ -22,14 +22,14 @@ type Dropdown struct {
 func NewDropdown(items []string) *Dropdown {
 	itemClicks := make([]widget.Clickable, len(items))
 
-	ppw := new(app.Window)
+	//ppw := new(app.Window)
 
 	return &Dropdown{
 		items:      items,
 		selected:   -1, // ничего не выбрано
 		list:       layout.List{Axis: layout.Vertical},
 		itemClicks: itemClicks,
-		ppw:        ppw,
+		//	ppw:        ppw,
 	}
 }
 
@@ -87,6 +87,29 @@ func (dd *Dropdown) getSelectedText() string {
 		return "Выберите файл"
 	}
 	return dd.items[dd.selected]
+}
+
+func (dd *Dropdown) SetSelectedText(num int) {
+	dd.selected = num
+}
+
+func (dd *Dropdown) IncSelectedText() {
+	if dd.selected < len(dd.items)-1 {
+		dd.selected++
+	} else {
+		dd.selected = 0
+	}
+
+	NewData <- dd.items[dd.selected]
+}
+
+func (dd *Dropdown) DecSelectedText() {
+	if dd.selected > 0 {
+		dd.selected--
+	} else {
+		dd.selected = len(dd.items) - 1
+	}
+	NewData <- dd.items[dd.selected]
 }
 
 /*

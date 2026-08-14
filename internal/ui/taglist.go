@@ -7,7 +7,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/mrscorpio/uahelper/configs"
-	"github.com/mrscorpio/uahelper/internal/tagdata"
+	"github.com/mrscorpio/uahelper/pkg/tagdata"
 )
 
 type Taglist struct {

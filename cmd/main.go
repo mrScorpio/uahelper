@@ -20,11 +20,12 @@ import (
 	"github.com/gopcua/opcua/ua"
 	"github.com/mrscorpio/uahelper/configs"
 	"github.com/mrscorpio/uahelper/internal/repository"
-	"github.com/mrscorpio/uahelper/internal/tagdata"
 	"github.com/mrscorpio/uahelper/internal/trend"
 	"github.com/mrscorpio/uahelper/internal/tripreport"
 	"github.com/mrscorpio/uahelper/internal/ui"
+	"github.com/mrscorpio/uahelper/pkg/natscl"
 	"github.com/mrscorpio/uahelper/pkg/opcuacl"
+	"github.com/mrscorpio/uahelper/pkg/tagdata"
 	"github.com/mrscorpio/uahelper/pkg/tgbot"
 	"github.com/mrscorpio/uahelper/pkg/vkbot"
 )
@@ -124,12 +125,23 @@ func main() {
 			log.Println(err)
 		}
 
+		natsCl, err := natscl.NewNats(cfg.NatsAddr, d.GetTagNum())
+		if err != nil {
+			log.Println(err)
+		}
+		if natsCl != nil {
+			err := natsCl.ListenCmd(d)
+			if err != nil {
+				log.Println(err)
+			}
+		}
+
 		spin := false // тэг для фиксации факта наличия вращения
 		fire := false // тэг для фиксации момента розжига
 
 		rpmInd := 0 // ищем индекс тэга контроля оборотов
 		for i := range d.Tag {
-			if d.Tag[i].Name == "ST50_BZK" {
+			if d.Tag[i].Name == "ST50" {
 				rpmInd = i
 			}
 		}
@@ -143,6 +155,9 @@ func main() {
 			for {
 				select {
 				case <-ctx.Done():
+					if natsCl != nil {
+						natsCl.C.Close()
+					}
 					log.Println("data process stopped")
 					return
 
@@ -180,7 +195,10 @@ func main() {
 								d.AddV(item.FirstPos+i, 6.6)
 								fmt.Println("tag N", item.FirstPos+i, "has no data")
 							} else {
-								d.AddV(item.FirstPos+i, float64(v.(float32)))
+								d.AddV(item.FirstPos+i, v.(float32))
+								if natsCl != nil {
+									natsCl.OnlineBuf[item.FirstPos+i] = v.(float32)
+								}
 							}
 						}
 
@@ -201,6 +219,12 @@ func main() {
 						}
 					}
 					//}
+					if natsCl != nil {
+						err := natsCl.SendCurrent()
+						if err != nil {
+							log.Println(err)
+						}
+					}
 					time.Sleep(time.Duration(d.MinCycle) * time.Millisecond) // ждем время минимального цикла
 				}
 			}
@@ -235,7 +259,7 @@ func main() {
 					ui.Cmd <- 6
 					return
 				case <-chkSpin.C:
-					var curRpm float64
+					var curRpm float32
 					if len(d.Tag[rpmInd].V) > 0 {
 						curRpm = d.Tag[rpmInd].V[len(d.Tag[rpmInd].V)-1] // если нашли тэг оборотов, то зачитываем его
 					}
@@ -396,6 +420,7 @@ func main() {
 					initDataLoad = false
 				} else {
 					ui.TL.UpdTaglist(d, cfg)
+					ui.DrawChart(cfg)
 				}
 			}
 		}()
@@ -422,6 +447,7 @@ func main() {
 			log.Println(err)
 		}
 		log.Println("stop from ui")
+
 		close(stopSrvSig) // отправляет сигнал останова хттп-серверу
 		close(ui.NewData)
 		if b != nil {
@@ -465,7 +491,7 @@ func main() {
 	go func() {
 		defer wg.Done()
 
-		mux.Handle("/", trend.View(ui.TrendData, ui.PrevHour, legSel, &wTime))
+		mux.Handle("/echart/", trend.View(ui.TrendData, ui.PrevHour, legSel, &wTime))
 		err := srv.ListenAndServe()
 		if err != nil {
 			log.Println(err)

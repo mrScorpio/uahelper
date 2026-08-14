@@ -10,7 +10,7 @@ import (
 	"github.com/go-echarts/go-echarts/v2/event"
 	"github.com/go-echarts/go-echarts/v2/opts"
 	"github.com/go-echarts/go-echarts/v2/types"
-	"github.com/mrscorpio/uahelper/internal/tagdata"
+	"github.com/mrscorpio/uahelper/pkg/tagdata"
 )
 
 // хэндлер для отрисовки трендов

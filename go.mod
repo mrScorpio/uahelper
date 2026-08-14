@@ -12,6 +12,7 @@ require (
 	gioui.org v0.10.0
 	github.com/go-telegram/bot v1.17.0
 	github.com/mail-ru-im/bot-golang v0.0.0-20250904145337-343461642fb9
+	github.com/nats-io/nats.go v1.52.0
 	github.com/vicanso/go-charts/v2 v2.6.10
 	gonum.org/v1/plot v0.16.0
 )
@@ -29,13 +30,17 @@ require (
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b // indirect
 	github.com/josharian/intern v1.0.0 // indirect
+	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/nats-io/nkeys v0.4.15 // indirect
+	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/wcharczuk/go-chart/v2 v2.1.0 // indirect
+	golang.org/x/crypto v0.49.0 // indirect
 	golang.org/x/exp/shiny v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
 	golang.org/x/image v0.26.0 // indirect
-	golang.org/x/net v0.48.0 // indirect
-	golang.org/x/sys v0.39.0 // indirect
-	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/net v0.51.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/text v0.35.0 // indirect
 )

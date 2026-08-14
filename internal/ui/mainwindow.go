@@ -22,7 +22,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/mrscorpio/uahelper/configs"
-	"github.com/mrscorpio/uahelper/internal/tagdata"
+	"github.com/mrscorpio/uahelper/pkg/tagdata"
 )
 
 type C = layout.Context
@@ -37,8 +37,8 @@ var (
 	DataLoaded chan struct{}
 	Gogo       bool
 	ScAuto     bool
-	ScMax      float64
-	ScMin      float64
+	ScMax      float32
+	ScMin      float32
 	BufImg     image.Image
 	ChartW     int
 	ChartH     int
@@ -102,6 +102,7 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 			if v == 9 {
 				cfg.WrFile()
 			}
+
 		}
 	}()
 
@@ -109,6 +110,8 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 	if err != nil {
 		log.Println(err)
 	}
+
+	filesDD := NewDropdown(arhFiles)
 
 	if mdrd {
 		DataLoaded = make(chan struct{})
@@ -120,11 +123,10 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 		<-DataLoaded
 		//LastInd = int64(len(d.Tt) - 1)
 		DrawChart(cfg)
+		filesDD.SetSelectedText(0)
 		swUpdPlot.Value = false
 		//time.Sleep(time.Duration(6666) * time.Millisecond)
 	}
-
-	filesDD := NewDropdown(arhFiles)
 
 	TL = NewTaglist(d, cfg)
 
@@ -182,18 +184,26 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 				}
 			}
 			if prevHourBtn.Clicked(gtx) {
-				*PrevHour--
-				swUpdPlot.Value, err = ShowHour(cfg)
+				if mdrd {
+					filesDD.DecSelectedText()
+				} else {
+					*PrevHour--
+					swUpdPlot.Value, err = ShowHour(cfg)
+				}
 			}
 			if nextHourBtn.Clicked(gtx) {
-				if *PrevHour < 0 {
-					*PrevHour++
+				if mdrd {
+					filesDD.IncSelectedText()
+				} else {
+					if *PrevHour < 0 {
+						*PrevHour++
+					}
+					swUpdPlot.Value, err = ShowHour(cfg)
 				}
-				swUpdPlot.Value, err = ShowHour(cfg)
 			}
 
 			if crSld.Dragging() {
-				if Gogo {
+				if Gogo || mdrd {
 					lastLen = float32(len(d.Tt) - 1)
 				}
 				if *PrevHour < 0 {
@@ -237,7 +247,8 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 			if okk || okp {
 				//fmt.Print(".")
 				inpMax := strings.TrimSpace(maxInp.Text())
-				ScMax, _ = strconv.ParseFloat(inpMax, 64)
+				scMax, _ := strconv.ParseFloat(inpMax, 32)
+				ScMax = float32(scMax)
 
 				if ScMax != 0.0 {
 					ScAuto = false
@@ -250,7 +261,8 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 
 			if okk2 || okp2 {
 				inpMin := strings.TrimSpace(minInp.Text())
-				ScMin, _ = strconv.ParseFloat(inpMin, 64)
+				scMin, _ := strconv.ParseFloat(inpMin, 32)
+				ScMin = float32(scMin)
 
 				if ScMin != 0.0 {
 					ScAuto = false
@@ -483,39 +495,6 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 
 										},
 									),
-									layout.Rigid(
-										func(gtx C) D {
-											margins := layout.Inset{
-												Top:    unit.Dp(1),
-												Bottom: unit.Dp(1),
-												Left:   unit.Dp(66),
-												Right:  unit.Dp(6),
-											}
-											return margins.Layout(gtx,
-												func(gtx C) D {
-													btn := material.Button(th, myBtn, "список тэгов")
-													return btn.Layout(gtx)
-												},
-											)
-										},
-									),
-
-									layout.Rigid(
-										func(gtx C) D {
-											margins := layout.Inset{
-												Top:    unit.Dp(1),
-												Bottom: unit.Dp(1),
-												Left:   unit.Dp(6),
-												Right:  unit.Dp(6),
-											}
-											return margins.Layout(gtx,
-												func(gtx C) D {
-													btn := material.Button(th, brBtn, "браузер")
-													return btn.Layout(gtx)
-												},
-											)
-										},
-									),
 
 									layout.Rigid(
 										func(gtx C) D {
@@ -544,6 +523,40 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 											return margins.Layout(gtx,
 												func(gtx C) D {
 													btn := material.Button(th, nextHourBtn, ">")
+													return btn.Layout(gtx)
+												},
+											)
+										},
+									),
+
+									layout.Rigid(
+										func(gtx C) D {
+											margins := layout.Inset{
+												Top:    unit.Dp(1),
+												Bottom: unit.Dp(1),
+												Left:   unit.Dp(6),
+												Right:  unit.Dp(6),
+											}
+											return margins.Layout(gtx,
+												func(gtx C) D {
+													btn := material.Button(th, myBtn, "список тэгов")
+													return btn.Layout(gtx)
+												},
+											)
+										},
+									),
+
+									layout.Rigid(
+										func(gtx C) D {
+											margins := layout.Inset{
+												Top:    unit.Dp(1),
+												Bottom: unit.Dp(1),
+												Left:   unit.Dp(6),
+												Right:  unit.Dp(6),
+											}
+											return margins.Layout(gtx,
+												func(gtx C) D {
+													btn := material.Button(th, brBtn, "браузер")
 													return btn.Layout(gtx)
 												},
 											)

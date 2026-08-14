@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mrscorpio/uahelper/internal/tagdata"
+	"github.com/mrscorpio/uahelper/pkg/tagdata"
 )
 
 func StoreData(d *tagdata.AllTags, arhDirName string, periodic bool) (*bytes.Buffer, string, error) {
