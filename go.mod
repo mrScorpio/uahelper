@@ -1,6 +1,6 @@
 module github.com/mrscorpio/uahelper
 
-go 1.26.3
+go 1.25.10
 
 require (
 	github.com/go-echarts/go-echarts/v2 v2.6.7

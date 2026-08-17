@@ -93,7 +93,7 @@ func main() {
 		}
 		tripTags := make([]*ua.ReadValueID, 0)
 		for _, v := range tagname {
-			id, err := ua.ParseNodeID("ns=2;s=Application." + v)
+			id, err := ua.ParseNodeID("ns=2;s=APPLICATION." + v)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -105,18 +105,24 @@ func main() {
 			TimestampsToReturn: ua.TimestampsToReturnBoth,
 		}
 
-		// если есть файл с данными текущего часа, читаем его в структуру
-		filedata, err := os.ReadFile(arhDirName + time.Now().Format("20060102_15") + ".json")
-		if err == nil {
-			err := json.Unmarshal(filedata, &d)
-			if err != nil {
-				log.Println(err)
-			}
-		}
-
 		err = d.ReadOpcTagList(ctx, cl) // вычитываем параметры с единицами измерения, комментами согласно списку тэгов
 		if err != nil {
 			log.Println(err)
+		}
+
+		cleanData, err := d.CopyData(1)
+		if err != nil {
+			log.Println(err)
+		}
+		log.Println(len(cleanData.Tt), len(cleanData.Tag))
+
+		// если есть файл с данными текущего часа, читаем его в структуру
+		filedata, err := os.ReadFile(arhDirName + time.Now().Format("20060102_15") + ".json")
+		if err == nil {
+			err := json.Unmarshal(filedata, d)
+			if err != nil {
+				log.Println(err)
+			}
 		}
 
 		cfg.UpdTagMap(d)
@@ -130,7 +136,7 @@ func main() {
 			log.Println(err)
 		}
 		if natsCl != nil {
-			err := natsCl.ListenCmd(d)
+			err := natsCl.ListenCmd(d, cleanData)
 			if err != nil {
 				log.Println(err)
 			}
@@ -192,8 +198,9 @@ func main() {
 							}
 							v := item.Resp.Results[i].Value.Value()
 							if v == nil {
-								d.AddV(item.FirstPos+i, 6.6)
-								fmt.Println("tag N", item.FirstPos+i, "has no data")
+								lastV := len(d.Tag[item.FirstPos+i].V) - 1
+								d.AddV(item.FirstPos+i, d.Tag[item.FirstPos+i].V[lastV])
+								//fmt.Println("tag N", item.FirstPos+i, "has no data")
 							} else {
 								d.AddV(item.FirstPos+i, v.(float32))
 								if natsCl != nil {

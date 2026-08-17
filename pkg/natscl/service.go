@@ -47,7 +47,7 @@ func (nc *NatsCl) SendCurrent() error {
 	return nil
 }
 
-func (nc *NatsCl) ListenCmd(d *tagdata.AllTags) error {
+func (nc *NatsCl) ListenCmd(d, cleanD *tagdata.AllTags) error {
 	_, err := nc.C.Subscribe("cmd", func(msg *nats.Msg) {
 		var clId string
 		var err error
@@ -64,7 +64,7 @@ func (nc *NatsCl) ListenCmd(d *tagdata.AllTags) error {
 		}
 
 		if nc.ClCmd[0] == 66 {
-			err = nc.InitNewClient(clId, d)
+			err = nc.InitNewClient(clId, d, cleanD)
 			if err != nil {
 				log.Println(err)
 			}
@@ -77,14 +77,31 @@ func (nc *NatsCl) ListenCmd(d *tagdata.AllTags) error {
 	return nil
 }
 
-func (nc *NatsCl) InitNewClient(clId string, d *tagdata.AllTags) error {
+func (nc *NatsCl) InitNewClient(clId string, d, dd *tagdata.AllTags) error {
+	/*
+		dd, err := d.CopyData(10)
+		if err != nil {
+			return err
+		}
+	*/
+	mul := 50
+	for i, v := range d.Tag {
+		for j := 0; j < len(v.V)-mul; j = j + mul {
+			dd.Tag[i].V = append(d.Tag[i].V, v.V[j])
+		}
+	}
+	for j := 0; j < len(d.Tt)-mul; j = j + mul {
+		dd.Tt = append(dd.Tt, d.Tt[j])
+	}
 
-	d.Mu.RLock()
-	data, err := json.MarshalIndent(d, "", "  ")
-	d.Mu.RUnlock()
+	dd.Mu.RLock()
+	data, err := json.MarshalIndent(dd, "", "  ")
+	dd.Mu.RUnlock()
 	if err != nil {
 		return err
 	}
+
+	dd.CleanAll()
 
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)

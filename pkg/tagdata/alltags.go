@@ -3,6 +3,7 @@ package tagdata
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"log"
 	"os"
 	"strconv"
@@ -104,15 +105,25 @@ func (at *AllTags) AddV(i int, v float32) {
 func (at *AllTags) Clean() {
 	at.Mu.Lock()
 	for i := range at.Tag {
-		//at.Tag[i].V = make([]float64, 0, 6666)
 		if len(at.Tag[i].V) > 22222 {
 			at.Tag[i].V = at.Tag[i].V[len(at.Tag[i].V)-22222:]
 		}
 	}
-	//at.Tt = make([]time.Time, 0, 6666)
+
 	if len(at.Tt) > 22222 {
 		at.Tt = at.Tt[len(at.Tt)-22222:]
 	}
+	at.Mu.Unlock()
+}
+
+func (at *AllTags) CleanAll() {
+	at.Mu.Lock()
+	for i := range at.Tag {
+		at.Tag[i].V = make([]float32, 0, 6666)
+	}
+
+	at.Tt = make([]time.Time, 0, 6666)
+
 	at.Mu.Unlock()
 }
 
@@ -278,7 +289,7 @@ func (at *AllTags) ChangeId() error {
 	for j := range at.Ccs {
 		firstPos := at.Ccs[j].FirstPos
 		for i := range at.Ccs[j].ReqTags {
-			ids := "ns=2;s=Application.AI." + at.Tag[firstPos+i].Name + ".OUT.VALUE"
+			ids := "ns=2;s=APPLICATION.AI." + at.Tag[firstPos+i].Name + ".OUT.VALUE"
 			id, err := ua.ParseNodeID(ids)
 			if err != nil {
 				return err
@@ -291,4 +302,28 @@ func (at *AllTags) ChangeId() error {
 
 func (at *AllTags) GetTagNum() int {
 	return len(at.Tag)
+}
+
+func (at *AllTags) CopyData(mul int) (*AllTags, error) {
+	d := new(AllTags)
+	at.Mu.RLock()
+	data, err := json.MarshalIndent(at, "", "  ")
+	at.Mu.RUnlock()
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(data, d)
+	if err != nil {
+		return nil, err
+	}
+	d.CleanAll()
+	for i, v := range at.Tag {
+		for j := 0; j < len(v.V)-mul; j = j + mul {
+			d.Tag[i].V = append(d.Tag[i].V, v.V[j])
+		}
+	}
+	for j := 0; j < len(at.Tt)-mul; j = j + mul {
+		d.Tt = append(d.Tt, at.Tt[j])
+	}
+	return d, nil
 }
