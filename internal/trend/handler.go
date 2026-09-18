@@ -127,13 +127,32 @@ func View(md map[int]*tagdata.AllTags, ind *int, legSel map[string]bool, wTime *
 
 		clickHandler := `(params) => alert(params.seriesIndex)`
 
+		myBtn := opts.ToolBoxFeatureUserDefined{
+			Show:    opts.Bool(true),
+			Title:   "my button",
+			Icon:    "image://https://echarts.apache.org/en/images/note.svg",
+			OnClick: ``,
+		}
+
 		line.SetGlobalOptions(
 			charts.WithInitializationOpts(opts.Initialization{
-				Theme:     types.ThemeWesteros,
+				Theme:     types.ThemeWonderland,
 				Width:     "1777px",
 				Height:    "888px",
 				PageTitle: "чёткие трендики",
 			}),
+			charts.WithToolboxOpts(opts.Toolbox{
+				Show:   opts.Bool(true),
+				Left:   "left",
+				Orient: "vertical",
+				Feature: &opts.ToolBoxFeature{
+					SaveAsImage: &opts.ToolBoxFeatureSaveAsImage{
+						Show: opts.Bool(true),
+					},
+					UserDefined: map[string]opts.ToolBoxFeatureUserDefined{"mmyBtn": myBtn},
+				},
+			},
+			),
 			charts.WithTitleOpts(opts.Title{Title: "Момент останова:", Subtitle: d.TripTM.Format(time.Stamp), Left: "center"}),
 			charts.WithGridOpts(opts.Grid{Width: "999px"}),
 			charts.WithLegendOpts(opts.Legend{Type: "scroll", Orient: "vertical", X: "right", Selected: legSel}),

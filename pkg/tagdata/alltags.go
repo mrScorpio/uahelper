@@ -173,8 +173,8 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl []*opcua.Client) error 
 	if len(cl) > 1 {
 		if cl[1] != nil {
 			if cl[1].State() == opcua.Connected {
-				preTag = "ns=2;s=APPLICATION."
-				postTag = ".VALUE"
+				preTag = "ns=2;s=Application.GVL_"
+				postTag = ".OUT.VALUE"
 			}
 		}
 	}
@@ -185,6 +185,24 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl []*opcua.Client) error 
 			nextTag := scanner.Text()
 			tagname = append(tagname, nextTag)
 			cycle = append(cycle, nextCycle)
+
+			if strings.Contains(nextTag, "BZK") && len(cl) > 1 {
+				err := d.Ccs[nextCycle].AddTag("ns=2;s=Application.NVL_" + nextTag + postTag)
+				if err != nil {
+					return err
+				}
+				i++
+				continue
+			}
+
+			if strings.Contains(nextTag, "MODBUS") {
+				err := d.Ccs[nextCycle].AddTag(preTag + nextTag)
+				if err != nil {
+					return err
+				}
+				i++
+				continue
+			}
 
 			err := d.Ccs[nextCycle].AddTag(preTag + nextTag + postTag)
 			if err != nil {
@@ -227,6 +245,9 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl []*opcua.Client) error 
 		}
 
 		uid[i], err = ua.ParseNodeID("ns=1;s=APPLICATION." + v + ".OUT.VALUE.100")
+		if strings.Contains(v, "MODBUS") {
+			uid[i], err = ua.ParseNodeID("ns=1;s=APPLICATION." + v + ".100")
+		}
 		if err != nil {
 			log.Fatalf("invalid node id: %v", err)
 			return err
@@ -289,7 +310,7 @@ func (at *AllTags) ChangeId() error {
 	for j := range at.Ccs {
 		firstPos := at.Ccs[j].FirstPos
 		for i := range at.Ccs[j].ReqTags {
-			ids := "ns=2;s=APPLICATION.AI." + at.Tag[firstPos+i].Name + ".OUT.VALUE"
+			ids := "ns=2;s=Application.GVL_AI." + at.Tag[firstPos+i].Name + ".OUT.VALUE"
 			id, err := ua.ParseNodeID(ids)
 			if err != nil {
 				return err

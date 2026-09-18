@@ -42,7 +42,7 @@ func StoreData(d *tagdata.AllTags, arhDirName string, periodic bool) (*bytes.Buf
 		return nil, "", err
 	}
 	w.Close()
-
+	log.Println("arh buf length = ", buf.Len(), "bytes")
 	err = os.WriteFile(arhDirName+filename, buf.Bytes(), 0755)
 
 	if err != nil {

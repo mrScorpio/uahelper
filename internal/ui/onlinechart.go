@@ -119,7 +119,7 @@ func DrawChart(cfg *configs.Config) error {
 			//opt.Title.Text = d.Tag[s].Unit
 			opt.XAxis.FontSize = 8
 			opt.YAxisOptions[0].FontSize = 8
-
+			//opt.Theme = "dark"
 			opt.Height = ChartH
 			opt.Width = ChartW
 			opt.YAxisOptions[0].Max = &scMax

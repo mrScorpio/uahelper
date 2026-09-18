@@ -30,7 +30,7 @@ import (
 	"github.com/mrscorpio/uahelper/pkg/vkbot"
 )
 
-const MdRd bool = false // для выбора перед компиляцией - логер 0 или вьюер 1
+const MdRd bool = true // для выбора перед компиляцией - логер 0 или вьюер 1
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -76,24 +76,24 @@ func main() {
 
 		// тут тэги с первопричинами аварии
 		tagname := []string{
-			"PROT.FIRSTCOM.FIRST",
-			"PROT.STARTDENY.FIRST",
-			"PROT.F_UNLOAD.FIRST",
-			"PROT.FORCE.FIRST",
-			"PROT.TRIP.FIRST",
-			"PROT.CCDENY.FIRST",
-			"PROT.OILF.FIRST",
-			"PROT.PURGEF.FIRST",
-			"PROT.TRIPRES.FIRST",
-			"PROT.TRIPMECH.FIRST",
-			"PROT.TRIPTURB1.FIRST",
-			"PROT.TRIPTURB2.FIRST",
-			"PROT.TRIPETC.FIRST",
-			"PROT.STARTDENYALG.FIRST",
+			"GVL_PROTECT.F_FIRST.FIRST",
+			"GVL_PROTECT.F_START.FIRST",
+			"GVL_PROTECT.F_UNLOAD.FIRST",
+			"GVL_PROTECT.F_FORCE.FIRST",
+			"GVL_PROTECT.F_TRIP.FIRST",
+			"GVL_PROTECT.F_CRANKING.FIRST",
+			"GVL_PROTECT.F_OILCHECK.FIRST",
+			"GVL_PROTECT.F_PURGE.FIRST",
+			"GVL_PROTECT.F_RESERVE.FIRST",
+			"GVL_PROTECT.F_TRIP_VIBR.FIRST",
+			"GVL_PROTECT.F_TRIP_TURB.FIRST",
+			"GVL_PROTECT.F_TRIP_BEARINGS.FIRST",
+			"GVL_PROTECT.F_TRIP_ETC.FIRST",
+			"GVL_PROTECT.F_START_SEQUENCE.FIRST",
 		}
 		tripTags := make([]*ua.ReadValueID, 0)
 		for _, v := range tagname {
-			id, err := ua.ParseNodeID("ns=2;s=APPLICATION." + v)
+			id, err := ua.ParseNodeID("ns=2;s=Application." + v)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -158,6 +158,7 @@ func main() {
 			defer wg.Done()
 			crTm := time.Now()
 			newTm := crTm
+			sendNats := 0
 			for {
 				select {
 				case <-ctx.Done():
@@ -213,6 +214,9 @@ func main() {
 
 						if item.Cct <= d.MinCycle {
 							newTm = crTm
+							if natsCl != nil {
+								natsCl.TimeBuf = newTm
+							}
 						}
 
 					}
@@ -226,12 +230,14 @@ func main() {
 						}
 					}
 					//}
-					if natsCl != nil {
+					if natsCl != nil && sendNats > 9 {
+						sendNats = 0
 						err := natsCl.SendCurrent()
 						if err != nil {
 							log.Println(err)
 						}
 					}
+					sendNats++
 					time.Sleep(time.Duration(d.MinCycle) * time.Millisecond) // ждем время минимального цикла
 				}
 			}
@@ -408,19 +414,21 @@ func main() {
 							log.Println(err)
 						}
 					}
-					time.Sleep(time.Duration(20) * time.Millisecond)
+
+					time.Sleep(time.Duration(100) * time.Millisecond)
 				}
 			}
 		}()
 	}
 
-	if MdRd {
-		ui.BufImg = image.NewRGBA(image.Rect(0, 0, 22, 16))
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			initDataLoad := true
-			for name := range ui.NewData {
+	//if MdRd {
+	ui.BufImg = image.NewRGBA(image.Rect(0, 0, 22, 16))
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		initDataLoad := true
+		for name := range ui.NewData {
+			if MdRd {
 				wTime, err = repository.ReadStored(d, name)
 				if initDataLoad {
 					close(ui.DataLoaded)
@@ -429,9 +437,20 @@ func main() {
 					ui.TL.UpdTaglist(d, cfg)
 					ui.DrawChart(cfg)
 				}
+			} else {
+				ui.Mu.Lock()
+				ui.Gogo = false
+				*ui.PrevHour = 666
+				if ui.TrendData[*ui.PrevHour] == nil {
+					ui.TrendData[*ui.PrevHour] = new(tagdata.AllTags)
+				}
+				wTime, err = repository.ReadStored(ui.TrendData[*ui.PrevHour], name)
+				ui.Mu.Unlock()
+				ui.DrawChart(cfg)
 			}
-		}()
-	}
+		}
+	}()
+	//}
 
 	// хттп-сервер для отображения трендов
 	srv := http.Server{

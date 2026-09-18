@@ -341,6 +341,10 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 									layout.Rigid(
 										func(gtx C) D {
 											sw := material.Switch(th, swUpdPlot, "upd")
+											if mdrd {
+												txt := material.H6(th, "")
+												return txt.Layout(gtx)
+											}
 											return sw.Layout(gtx)
 										},
 									),
@@ -467,10 +471,10 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 											}
 											return margins.Layout(gtx,
 												func(gtx C) D {
-													txt := material.H6(th, "Архив:")
-													if !mdrd {
+													txt := material.H6(th, "Архивы:")
+													/*if !mdrd {
 														txt.Text = ""
-													}
+													}*/
 													return txt.Layout(gtx)
 												},
 											)
@@ -482,11 +486,10 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 												Color: color.NRGBA{R: 6, G: 6, B: 222, A: 255},
 												Width: unit.Dp(2),
 											}
-
-											if !mdrd {
+											/*if !mdrd {
 												txt := material.H6(th, "")
 												return txt.Layout(gtx)
-											}
+											}*/
 											return brdr.Layout(gtx,
 												func(gtx C) D {
 													return filesDD.Layout(gtx, th)

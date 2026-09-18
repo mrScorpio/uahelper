@@ -2,8 +2,6 @@ package opcuacl
 
 import (
 	"context"
-	"crypto/rsa"
-	"crypto/tls"
 	"fmt"
 	"os"
 	"strings"
@@ -38,36 +36,37 @@ func NewCl(ctx context.Context, cfg *configs.Config, dontconnect bool) ([]*opcua
 		}
 		os.WriteFile("cert.pem", c, 0644)
 		os.WriteFile("key.der", k, 0644)
+		/*
+			ck, err := tls.LoadX509KeyPair("cert.pem", "key.der")
 
-		ck, err := tls.LoadX509KeyPair("cert.pem", "key.der")
+			if err != nil {
+				return cl, fmt.Errorf("generator:%s", err)
+			}
 
-		if err != nil {
-			return cl, fmt.Errorf("generator:%s", err)
-		}
+			eps, err := opcua.GetEndpoints(ctx, srvs[1])
+			if err != nil {
+				return cl, fmt.Errorf("OPC GetEndpoints: %w", err)
+			}
 
-		eps, err := opcua.GetEndpoints(ctx, srvs[1])
-		if err != nil {
-			return cl, fmt.Errorf("OPC GetEndpoints: %w", err)
-		}
-
-		ep, err := opcua.SelectEndpoint(eps, ua.SecurityPolicyURIBasic256, ua.MessageSecurityModeSign)
-		if err != nil {
-			return cl, fmt.Errorf("OPC SelectEndpoints: %w", err)
-		}
-
+			ep, err := opcua.SelectEndpoint(eps, ua.SecurityPolicyURIBasic256, ua.MessageSecurityModeSign)
+			if err != nil {
+				return cl, fmt.Errorf("OPC SelectEndpoints: %w", err)
+			}
+		*/
 		cl[1], err = opcua.NewClient(srvs[1],
-			opcua.SecurityMode(ua.MessageSecurityModeSign),
-			opcua.SecurityPolicy(ua.SecurityPolicyURIBasic256),
-			opcua.AuthUsername("scada", "xog52o3j8"),
-			opcua.PrivateKey(ck.PrivateKey.(*rsa.PrivateKey)),
-			opcua.SecurityFromEndpoint(ep, ua.UserTokenTypeUserName),
-			opcua.Certificate(ck.Certificate[0]),
+			opcua.SecurityMode(ua.MessageSecurityModeNone),
+			//opcua.SecurityPolicy(ua.SecurityPolicyURIBasic256),
+			//opcua.AuthUsername("scada", "xog52o3j8"),
+			//opcua.PrivateKey(ck.PrivateKey.(*rsa.PrivateKey)),
+			//opcua.SecurityFromEndpoint(ep, ua.UserTokenTypeUserName),
+			//opcua.Certificate(ck.Certificate[0]),
 		)
 
 		if err != nil {
 			return cl, err
 		}
 		if err := cl[1].Connect(ctx); err != nil {
+			err = fmt.Errorf("not connected to plc: %w", err)
 			return cl, err
 		}
 	}
