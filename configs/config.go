@@ -29,6 +29,8 @@ type Config struct {
 	UaPass       string
 	BrPath       string
 	NatsAddr     string
+	InfluxUrl    string
+	InfluxToken  string
 	ShowTags     map[int]bool
 	ShowTagNames []string
 	Mu           sync.RWMutex `json:"-"`
@@ -98,6 +100,8 @@ func LoadConfig() *Config {
 	uaPass := os.Getenv("UAPASS")
 	brPath := os.Getenv("BRPATH")
 	natsAddr := os.Getenv("NATS")
+	influxUrl := os.Getenv("INFLUXURL")
+	influxToken := os.Getenv("INFLUXTOKEN")
 	return &Config{
 		Endpoint:     os.Getenv("EP"),
 		Bot:          bot,
@@ -116,6 +120,8 @@ func LoadConfig() *Config {
 		UaPass:       uaPass,
 		BrPath:       brPath,
 		NatsAddr:     natsAddr,
+		InfluxUrl:    influxUrl,
+		InfluxToken:  influxToken,
 		ShowTags:     showTags,
 		ShowTagNames: showTagNames,
 	}

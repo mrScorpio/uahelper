@@ -123,7 +123,9 @@ func DrawUi(w *app.Window, d *tagdata.AllTags, cfg *configs.Config, mdrd bool) e
 		<-DataLoaded
 		//LastInd = int64(len(d.Tt) - 1)
 		DrawChart(cfg)
-		filesDD.SetSelectedText(0)
+		if len(arhFiles) > 0 {
+			filesDD.SetSelectedText(0)
+		}
 		swUpdPlot.Value = false
 		//time.Sleep(time.Duration(6666) * time.Millisecond)
 	}

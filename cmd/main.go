@@ -30,7 +30,7 @@ import (
 	"github.com/mrscorpio/uahelper/pkg/vkbot"
 )
 
-const MdRd bool = true // для выбора перед компиляцией - логер 0 или вьюер 1
+const MdRd bool = false // для выбора перед компиляцией - логер 0 или вьюер 1
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -60,6 +60,21 @@ func main() {
 	cl, err := opcuacl.NewCl(ctx, cfg, MdRd) // описи юа клиент, в режиме просмотра нил
 	if err != nil {
 		log.Println(err)
+	}
+
+	dbCl, err := repository.DbConnect(cfg)
+	if err != nil {
+		log.Println("InfluxDB client driver:", err)
+	}
+
+	if dbCl != nil {
+		chkInflux, err := dbCl.Cl.GetServerVersion()
+
+		if err != nil {
+			log.Println(err)
+		} else {
+			log.Println("Connected to InfluxDB ver.", chkInflux)
+		}
 	}
 
 	d := new(tagdata.AllTags)
@@ -204,6 +219,9 @@ func main() {
 								//fmt.Println("tag N", item.FirstPos+i, "has no data")
 							} else {
 								d.AddV(item.FirstPos+i, v.(float32))
+								if dbCl != nil {
+									dbCl.Data[d.Tag[item.FirstPos+i].Name] = v.(float32)
+								}
 								if natsCl != nil {
 									natsCl.OnlineBuf[item.FirstPos+i] = v.(float32)
 								}
@@ -220,6 +238,12 @@ func main() {
 						}
 
 					}
+					if dbCl != nil {
+						if err := dbCl.DbWr(ctx, newTm); err != nil {
+							log.Println(err)
+						}
+					}
+					//fmt.Println(newTm)
 					//if newTm != crTm {
 					if d.AddT(newTm, spin) && !ui.Gogo && !MdRd {
 						if ui.LastInd > 666 {
@@ -268,6 +292,14 @@ func main() {
 							log.Println(err)
 						}
 					*/
+					if dbCl != nil {
+						err = dbCl.Cl.Close()
+						if err != nil {
+							log.Println(err)
+						} else {
+							log.Println("InfluxDb connection closed")
+						}
+					}
 					log.Println("file process stopped")
 					ui.Cmd <- 6
 					return
