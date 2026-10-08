@@ -17,6 +17,8 @@ type Config struct {
 	VkBot        bool
 	RdMd         bool
 	StoreCycle   int
+	OpcMaxAge    int
+	OpcCtxTmout  int
 	TrPort       string
 	BotToken     string
 	BotChat      string
@@ -56,6 +58,8 @@ func LoadConfig() *Config {
 			Bot:          false,
 			RdMd:         false,
 			StoreCycle:   666,
+			OpcMaxAge:    666,
+			OpcCtxTmout:  666,
 			TrPort:       ":22222",
 			BotToken:     "",
 			BotChat:      "",
@@ -69,6 +73,8 @@ func LoadConfig() *Config {
 	}
 	var bot, vkbot, rdmd bool
 	stcc := 66
+	opcMaxAge := 66
+	opcCtxTmout := 666
 	bot, err = strconv.ParseBool(os.Getenv("BOT"))
 	if err != nil {
 		bot = false
@@ -84,6 +90,14 @@ func LoadConfig() *Config {
 	stcc, err = strconv.Atoi(os.Getenv("STCC"))
 	if err != nil {
 		stcc = 666
+	}
+	opcMaxAge, err = strconv.Atoi(os.Getenv("OPCMAXAGE"))
+	if err != nil {
+		opcMaxAge = 666
+	}
+	opcCtxTmout, err = strconv.Atoi(os.Getenv("OPCCTXTM"))
+	if err != nil {
+		opcCtxTmout = 666
 	}
 	trPort := os.Getenv("TRPORT")
 	if trPort == "" {
@@ -108,6 +122,8 @@ func LoadConfig() *Config {
 		VkBot:        vkbot,
 		RdMd:         rdmd,
 		StoreCycle:   stcc,
+		OpcMaxAge:    opcMaxAge,
+		OpcCtxTmout:  opcCtxTmout,
 		TrPort:       trPort,
 		BotToken:     botToken,
 		BotChat:      botChat,

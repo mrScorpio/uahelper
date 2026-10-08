@@ -138,6 +138,11 @@ func main() {
 			if err != nil {
 				log.Println(err)
 			}
+		} else {
+			d.Tag = append(d.Tag, d.NewTag("opcDly", "задержка ответа OPC", d.MinCycle))
+			d.Tag[len(d.Tag)-1].Unit = "мс"
+			d.Unit["мс"] = tagdata.NewUnit()
+			d.Unit["мс"].Pos = append(d.Unit["мс"].Pos, len(d.Tag)-1)
 		}
 
 		cfg.UpdTagMap(d)
@@ -174,6 +179,10 @@ func main() {
 			crTm := time.Now()
 			newTm := crTm
 			sendNats := 0
+			//chkReqCnt := 0
+			var chkTm time.Time
+			var crCycleMs, opcRespMs int64
+
 			for {
 				select {
 				case <-ctx.Done():
@@ -181,70 +190,107 @@ func main() {
 						natsCl.C.Close()
 					}
 					log.Println("data process stopped")
+
 					return
 
 				default:
 					//var crTm time.Time
 					// перебираем циклы и формируем обращения к серверу
-					for key, item := range d.Ccs {
-						// если пришло время обратиться, то обращаемся
-						if item.Cct >= key {
-							if cl[0].State() == opcua.Connected {
-								clNum := 0
-								if len(cl) > 1 {
-									if cl[1] != nil {
-										if cl[1].State() == opcua.Connected {
-											clNum = 1 // если достучались до второго узла, то тянем данные с него
-										}
-									}
-								}
-								item.Resp, err = cl[clNum].Read(ctx, item.Req)
-							}
-							if err != nil {
-								log.Println("opcua request error: ", err)
-								continue
-							}
+					chkTm = time.Now()
+					crCycleMs = 0
+					nodes := make([]*ua.ReadValueID, 0)
+					req := &ua.ReadRequest{
+						NodesToRead:        nodes,
+						MaxAge:             float64(cfg.OpcMaxAge),
+						TimestampsToReturn: ua.TimestampsToReturnBoth,
+					}
+					resp := &ua.ReadResponse{}
+					cclOrder := make([]int, 0)
 
+					for key, item := range d.Ccs {
+						// если пришло время обратиться, то добавляем тэги в запрос
+						if item.Cct >= key {
+							req.NodesToRead = append(req.NodesToRead, item.ReqTags...)
+							cclOrder = append(cclOrder, key)
 							item.Cct = 0
-						}
-						// заполняем слайсы новыми данными
-						for i := range item.Resp.Results {
-							if i == len(item.Resp.Results)-1 {
-								crTm = item.Resp.Results[0].ServerTimestamp.Local() //.Format("15:04:05.000")
-							}
-							v := item.Resp.Results[i].Value.Value()
-							if v == nil {
-								lastV := len(d.Tag[item.FirstPos+i].V) - 1
-								d.AddV(item.FirstPos+i, d.Tag[item.FirstPos+i].V[lastV])
-								//fmt.Println("tag N", item.FirstPos+i, "has no data")
-							} else {
-								d.AddV(item.FirstPos+i, v.(float32))
-								if dbCl != nil {
-									dbCl.Data[d.Tag[item.FirstPos+i].Name] = v.(float32)
-								}
-								if natsCl != nil {
-									natsCl.OnlineBuf[item.FirstPos+i] = v.(float32)
-								}
-							}
 						}
 
 						item.Cct += d.MinCycle // для контроля момента обращения
+					}
 
-						if item.Cct <= d.MinCycle {
-							newTm = crTm
-							if natsCl != nil {
-								natsCl.TimeBuf = newTm
+					if len(req.NodesToRead) == 0 {
+						continue
+					}
+
+					if cl[0].State() == opcua.Connected {
+						clNum := 0
+						if len(cl) > 1 {
+							if cl[1] != nil {
+								if cl[1].State() == opcua.Connected {
+									clNum = 1 // если достучались до второго узла, то тянем данные с него
+								}
 							}
 						}
-
+						reqctx, reqCancel := context.WithTimeout(ctx, time.Duration(cfg.OpcCtxTmout)*time.Millisecond)
+						resp, err = cl[clNum].Read(reqctx, req)
+						reqCancel()
+						opcRespMs = time.Since(chkTm).Milliseconds()
+						/*
+							if resp != nil && cfg.RdMd {
+								fmt.Print(reqDur, "ms-n=", len(resp.Results), " ")
+							}
+						*/
+						if opcRespMs > 666 {
+							log.Println("ua response is fucking slow -", opcRespMs, "ms to answer")
+						}
+						if err != nil {
+							log.Println("opcua request error: ", err)
+							d.AddV(len(d.Tag)-1, float32(opcRespMs))
+							continue
+						}
 					}
+					resLen := len(resp.Results)
+					if resLen > 0 {
+						newTm = resp.Results[0].ServerTimestamp.Local()
+
+						for i := range d.Tag {
+							d.AddPreV(i)
+						}
+
+						i := 0
+						for _, cc := range cclOrder {
+							for j := 0; j < d.Ccs[cc].Q; j++ {
+								v := resp.Results[i].Value.Value()
+								if v != nil {
+									ind := d.Ccs[cc].FirstPos + j
+									d.ChgLastV(ind, v.(float32))
+									if dbCl != nil {
+										dbCl.Data[d.Tag[ind].Name] = v.(float32)
+									}
+									if natsCl != nil {
+										natsCl.OnlineBuf[ind] = v.(float32)
+									}
+								}
+								i++
+							}
+						}
+						//добавили значение задержки опроса
+						d.ChgLastV(len(d.Tag)-1, float32(opcRespMs))
+						if dbCl != nil {
+							lasTag := len(d.Tag) - 1
+							dbCl.Data[d.Tag[lasTag].Name] = opcRespMs // и в базу
+						}
+					}
+					if natsCl != nil {
+						natsCl.TimeBuf = newTm
+					}
+
 					if dbCl != nil {
 						if err := dbCl.DbWr(ctx, newTm); err != nil {
 							log.Println(err)
 						}
 					}
-					//fmt.Println(newTm)
-					//if newTm != crTm {
+
 					if d.AddT(newTm, spin) && !ui.Gogo && !MdRd {
 						if ui.LastInd > 666 {
 							ui.LastInd -= 666
@@ -253,7 +299,7 @@ func main() {
 							ui.FstInd -= 666
 						}
 					}
-					//}
+
 					if natsCl != nil && sendNats > 9 {
 						sendNats = 0
 						err := natsCl.SendCurrent()
@@ -262,7 +308,20 @@ func main() {
 						}
 					}
 					sendNats++
-					time.Sleep(time.Duration(d.MinCycle) * time.Millisecond) // ждем время минимального цикла
+					crCycleMs = time.Since(chkTm).Milliseconds()
+					/*if chkReqCnt > 222 {
+						fmt.Println(" =", crCycleMs)
+						chkReqCnt = 0
+					}
+					chkReqCnt++
+					*/
+					if crCycleMs > 666 {
+						log.Println("cycle is fucking slow -", crCycleMs, "ms")
+					}
+					if crCycleMs < int64(d.MinCycle) {
+						//fmt.Println(" wait", d.MinCycle-int(crCycleMs))
+						time.Sleep(time.Duration(d.MinCycle-int(crCycleMs)) * time.Millisecond) // ждем время минимального цикла
+					}
 				}
 			}
 		}()

@@ -117,6 +117,9 @@ func View(md map[int]*tagdata.AllTags, ind *int, legSel map[string]bool, wTime *
 
 		for _, v := range chsdTags {
 			tagname := strings.ToUpper(strings.TrimSpace(v))
+			if tagname == "OPCDLY" {
+				tagname = "opcDly"
+			}
 			for _, v := range d.Tag {
 				if tagname == v.Name {
 					legSel[tagname+" "+d.Descr[tagname]+", "+v.Unit] = true

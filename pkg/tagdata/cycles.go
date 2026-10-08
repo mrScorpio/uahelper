@@ -19,10 +19,12 @@ func NewCycle() *CycleData {
 		ReqTags: req,
 		Req: &ua.ReadRequest{
 			NodesToRead:        req,
-			MaxAge:             2222,
+			MaxAge:             0,
 			TimestampsToReturn: ua.TimestampsToReturnBoth,
 		},
 		Resp: &ua.ReadResponse{},
+		Q:    0,
+		Cct:  666,
 	}
 }
 

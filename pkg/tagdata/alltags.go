@@ -99,7 +99,38 @@ func (at *AllTags) AddV(i int, v float32) {
 			at.Unit[unit].Min = at.Tag[i].Min
 		}
 	}
+}
 
+func (at *AllTags) AddPreV(i int) {
+	lastV := len(at.Tag[i].V) - 1
+	if lastV < 0 {
+		at.AddV(i, 0.0)
+	} else {
+		at.AddV(i, at.Tag[i].V[lastV])
+	}
+}
+
+func (at *AllTags) ChgLastV(i int, v float32) {
+	lastV := len(at.Tag[i].V) - 1
+	at.Mu.Lock()
+	at.Tag[i].V[lastV] = v
+
+	unit := at.Tag[i].Unit
+
+	if v > at.Tag[i].Max {
+		at.Tag[i].Max = v
+		if at.Tag[i].Max > at.Unit[unit].Max {
+			at.Unit[unit].Max = at.Tag[i].Max
+		}
+	}
+
+	if v < at.Tag[i].Min {
+		at.Tag[i].Min = v
+		if at.Tag[i].Min < at.Unit[unit].Min {
+			at.Unit[unit].Min = at.Tag[i].Min
+		}
+	}
+	at.Mu.Unlock()
 }
 
 func (at *AllTags) Clean() {
@@ -180,6 +211,9 @@ func (d *AllTags) ReadOpcTagList(ctx context.Context, cl []*opcua.Client) error 
 	}
 
 	for scanner.Scan() {
+		if scanner.Err() != nil {
+			return scanner.Err()
+		}
 		c, err := strconv.Atoi(strings.TrimSuffix(scanner.Text(), ":"))
 		if err != nil {
 			nextTag := scanner.Text()
