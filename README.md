@@ -7,5 +7,4 @@ Tool can send archives and some messages to telegram bot.
 Config must be read from .env file (see .env_example).
 
 TODO:
-- add modbus connection
 - add subscribtion mode to opc ua

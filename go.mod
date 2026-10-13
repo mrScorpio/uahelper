@@ -15,6 +15,7 @@ require (
 	github.com/influxdata/line-protocol/v2 v2.2.1
 	github.com/mail-ru-im/bot-golang v0.0.0-20250904145337-343461642fb9
 	github.com/nats-io/nats.go v1.52.0
+	github.com/simonvetter/modbus v1.6.4
 	github.com/vicanso/go-charts/v2 v2.6.10
 	gonum.org/v1/plot v0.16.0
 )
@@ -30,6 +31,7 @@ require (
 	github.com/campoy/embedmd v1.0.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-text/typesetting v0.3.4 // indirect
+	github.com/goburrow/serial v0.1.0 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/google/flatbuffers v25.12.19+incompatible // indirect

@@ -23,11 +23,13 @@ import (
 	"github.com/mrscorpio/uahelper/internal/trend"
 	"github.com/mrscorpio/uahelper/internal/tripreport"
 	"github.com/mrscorpio/uahelper/internal/ui"
+	"github.com/mrscorpio/uahelper/pkg/modbys"
 	"github.com/mrscorpio/uahelper/pkg/natscl"
 	"github.com/mrscorpio/uahelper/pkg/opcuacl"
 	"github.com/mrscorpio/uahelper/pkg/tagdata"
 	"github.com/mrscorpio/uahelper/pkg/tgbot"
 	"github.com/mrscorpio/uahelper/pkg/vkbot"
+	"github.com/simonvetter/modbus"
 )
 
 const MdRd bool = false // для выбора перед компиляцией - логер 0 или вьюер 1
@@ -60,6 +62,19 @@ func main() {
 	cl, err := opcuacl.NewCl(ctx, cfg, MdRd) // описи юа клиент, в режиме просмотра нил
 	if err != nil {
 		log.Println(err)
+	}
+
+	mbcl, err := modbys.NewCl("tcp://10.102.4.15:502")
+	if err != nil {
+		log.Println(err)
+	}
+
+	if mbcl != nil {
+		tikdata, err := mbcl.ReadRegisters(3999, 90, modbus.HOLDING_REGISTER)
+		if err != nil {
+			log.Println(err)
+		}
+		fmt.Println("TIK:", tikdata)
 	}
 
 	dbCl, err := repository.DbConnect(cfg)
@@ -205,6 +220,7 @@ func main() {
 						TimestampsToReturn: ua.TimestampsToReturnBoth,
 					}
 					resp := &ua.ReadResponse{}
+					noResp := false
 					cclOrder := make([]int, 0)
 
 					for key, item := range d.Ccs {
@@ -234,7 +250,9 @@ func main() {
 						reqctx, reqCancel := context.WithTimeout(ctx, time.Duration(cfg.OpcCtxTmout)*time.Millisecond)
 						resp, err = cl[clNum].Read(reqctx, req)
 						reqCancel()
-						opcRespMs = time.Since(chkTm).Milliseconds()
+						opcResp := time.Since(chkTm)
+						opcRespMs = opcResp.Milliseconds()
+						newTm = chkTm.Add(opcResp)
 						/*
 							if resp != nil && cfg.RdMd {
 								fmt.Print(reqDur, "ms-n=", len(resp.Results), " ")
@@ -244,41 +262,45 @@ func main() {
 							log.Println("ua response is fucking slow -", opcRespMs, "ms to answer")
 						}
 						if err != nil {
-							log.Println("opcua request error: ", err)
-							d.AddV(len(d.Tag)-1, float32(opcRespMs))
-							continue
+							if err.Error() != "context deadline exceeded" {
+								log.Println("opcua request error:", err)
+							}
+							noResp = true
 						}
 					}
-					resLen := len(resp.Results)
-					if resLen > 0 {
-						newTm = resp.Results[0].ServerTimestamp.Local()
 
-						for i := range d.Tag {
-							d.AddPreV(i)
-						}
+					for i := range d.Tag {
+						d.AddPreV(i)
+					}
 
-						i := 0
-						for _, cc := range cclOrder {
-							for j := 0; j < d.Ccs[cc].Q; j++ {
-								v := resp.Results[i].Value.Value()
-								if v != nil {
-									ind := d.Ccs[cc].FirstPos + j
-									d.ChgLastV(ind, v.(float32))
-									if dbCl != nil {
-										dbCl.Data[d.Tag[ind].Name] = v.(float32)
+					//добавили значение задержки опроса
+					d.ChgLastV(len(d.Tag)-1, float32(opcRespMs))
+					if dbCl != nil {
+						lasTag := len(d.Tag) - 1
+						dbCl.Data[d.Tag[lasTag].Name] = opcRespMs // и в базу
+					}
+
+					if !noResp {
+						resLen := len(resp.Results)
+						if resLen > 0 {
+							//newTm = resp.Results[0].ServerTimestamp.Local()
+							i := 0
+							for _, cc := range cclOrder {
+								for j := 0; j < d.Ccs[cc].Q; j++ {
+									v := resp.Results[i].Value.Value()
+									if v != nil {
+										ind := d.Ccs[cc].FirstPos + j
+										d.ChgLastV(ind, v.(float32))
+										if dbCl != nil {
+											dbCl.Data[d.Tag[ind].Name] = v.(float32)
+										}
+										if natsCl != nil {
+											natsCl.OnlineBuf[ind] = v.(float32)
+										}
 									}
-									if natsCl != nil {
-										natsCl.OnlineBuf[ind] = v.(float32)
-									}
+									i++
 								}
-								i++
 							}
-						}
-						//добавили значение задержки опроса
-						d.ChgLastV(len(d.Tag)-1, float32(opcRespMs))
-						if dbCl != nil {
-							lasTag := len(d.Tag) - 1
-							dbCl.Data[d.Tag[lasTag].Name] = opcRespMs // и в базу
 						}
 					}
 					if natsCl != nil {
@@ -575,6 +597,7 @@ func main() {
 				cl[i].Close(ctx) // отключаем описи юа клиент
 			}
 		}
+		mbcl.Close()
 		cancel() // отменяем контекст для завершения всех процессов
 		wg.Done()
 		wg.Wait() // ждем останова всех рутин
