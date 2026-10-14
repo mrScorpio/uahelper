@@ -9,7 +9,7 @@ import (
 func NewCl(url string) (*modbus.ModbusClient, error) {
 	cl, err := modbus.NewClient(&modbus.ClientConfiguration{
 		URL:     url,
-		Timeout: 2 * time.Second,
+		Timeout: 666 * time.Millisecond,
 	})
 	if err != nil {
 		return nil, err

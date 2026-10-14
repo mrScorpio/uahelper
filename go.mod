@@ -2,6 +2,8 @@ module github.com/mrscorpio/uahelper
 
 go 1.25.10
 
+replace uadata => ../uachecker/uadata
+
 require (
 	github.com/go-echarts/go-echarts/v2 v2.6.7
 	github.com/gopcua/opcua v0.8.0
@@ -18,6 +20,8 @@ require (
 	github.com/simonvetter/modbus v1.6.4
 	github.com/vicanso/go-charts/v2 v2.6.10
 	gonum.org/v1/plot v0.16.0
+	google.golang.org/grpc v1.84.0
+	uadata v0.0.0-00010101000000-000000000000
 )
 
 require (
@@ -48,14 +52,13 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/wcharczuk/go-chart/v2 v2.1.0 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
-	golang.org/x/crypto v0.51.0 // indirect
+	golang.org/x/crypto v0.54.0 // indirect
 	golang.org/x/exp v0.0.0-20260527015227-08cc5374adb3 // indirect
 	golang.org/x/exp/shiny v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
 	golang.org/x/image v0.26.0 // indirect
-	golang.org/x/net v0.55.0 // indirect
-	golang.org/x/sys v0.45.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
-	google.golang.org/grpc v1.82.0 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
+	golang.org/x/net v0.57.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/text v0.40.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260706201446-f0a921348800 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
 )

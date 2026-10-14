@@ -30,6 +30,11 @@ import (
 	"github.com/mrscorpio/uahelper/pkg/tgbot"
 	"github.com/mrscorpio/uahelper/pkg/vkbot"
 	"github.com/simonvetter/modbus"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials/insecure"
+
+	pb "uadata"
 )
 
 const MdRd bool = false // для выбора перед компиляцией - логер 0 или вьюер 1
@@ -38,13 +43,25 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	cfg := configs.LoadConfig()
+
+	var grpCl pb.UaServiceClient
+	grpcAddr := strings.Split(cfg.NatsAddr, ":")
+	grpCon, err := grpc.NewClient(grpcAddr[0]+":50005", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Println(err)
+	} else {
+		defer grpCon.Close()
+		if grpCon != nil {
+			grpCl = pb.NewUaServiceClient(grpCon)
+		}
+	}
+
 	mux := http.NewServeMux()
 
 	ui.NewData = make(chan string) //канал для передачи имени файла от уи в бэкенд
 	ui.Cmd = make(chan int)
 	//ui.Gogo = true
-
-	cfg := configs.LoadConfig()
 
 	arhDirName := "arh/" //папка для хранения файлов
 
@@ -70,6 +87,7 @@ func main() {
 	}
 
 	if mbcl != nil {
+		defer mbcl.Close()
 		tikdata, err := mbcl.ReadRegisters(3999, 90, modbus.HOLDING_REGISTER)
 		if err != nil {
 			log.Println(err)
@@ -140,6 +158,11 @@ func main() {
 			log.Println(err)
 		}
 
+		d.Tag = append(d.Tag, d.NewTag("opcDly", "задержка ответа OPC", d.MinCycle))
+		d.Tag[len(d.Tag)-1].Unit = "мс"
+		d.Unit["мс"] = tagdata.NewUnit()
+		d.Unit["мс"].Pos = append(d.Unit["мс"].Pos, len(d.Tag)-1)
+
 		cleanData, err := d.CopyData(1)
 		if err != nil {
 			log.Println(err)
@@ -153,11 +176,6 @@ func main() {
 			if err != nil {
 				log.Println(err)
 			}
-		} else {
-			d.Tag = append(d.Tag, d.NewTag("opcDly", "задержка ответа OPC", d.MinCycle))
-			d.Tag[len(d.Tag)-1].Unit = "мс"
-			d.Unit["мс"] = tagdata.NewUnit()
-			d.Unit["мс"].Pos = append(d.Unit["мс"].Pos, len(d.Tag)-1)
 		}
 
 		cfg.UpdTagMap(d)
@@ -484,6 +502,19 @@ func main() {
 						}
 					}
 
+					if grpCon.GetState() != connectivity.TransientFailure {
+						go func() {
+							grpCtx, grpCancel := context.WithTimeout(ctx, time.Second)
+							res, err := grpCl.GetData(grpCtx, &pb.SrvRequest{Wd: "1"})
+							grpCancel()
+							if err != nil {
+								log.Println(err)
+							} else {
+								log.Println(res)
+							}
+						}()
+					}
+
 				case <-ticker.C:
 					nowT := time.Now()
 
@@ -597,7 +628,6 @@ func main() {
 				cl[i].Close(ctx) // отключаем описи юа клиент
 			}
 		}
-		mbcl.Close()
 		cancel() // отменяем контекст для завершения всех процессов
 		wg.Done()
 		wg.Wait() // ждем останова всех рутин

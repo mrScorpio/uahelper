@@ -34,7 +34,7 @@ func (ic *InfluxCl) DbWr(ctx context.Context, tm time.Time) error {
 		tm,
 	)
 	ic.points = append(ic.points, point)
-	if len(ic.points) > 660 {
+	if len(ic.points) > 99 {
 		sendPoints := make([]*influxdb3.Point, len(ic.points))
 		copy(sendPoints, ic.points)
 		if ic.Cl != nil {
